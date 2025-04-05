@@ -20,7 +20,11 @@ class OllamaChatSession
         ShouldRun = true;
         EventBasedNetListener listener = new EventBasedNetListener();
         NetManager server = new NetManager(listener);
-        server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port);
+        if (!server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port))
+        {
+            Console.WriteLine("Error starting server!");
+            return;
+        } 
 
         listener.ConnectionRequestEvent += request =>
         {
@@ -33,13 +37,20 @@ class OllamaChatSession
             {
                 request.Reject();
             }
-        };
-        _netPacketProcessor.SubscribeNetSerializable<MessageInfo>(OnMessageRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<CharacterInfo>(OnCharacterRecieved);
+        }; 
+        _netPacketProcessor.SubscribeReusable<MessageInfo>(OnMessageRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<NPCCharacterInfo>(OnCharacterRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
+            Console.WriteLine("Unity connected!");
         };
+        listener.PeerDisconnectedEvent += (peer, info) =>
+        {
+            Console.WriteLine("Unity disconnected!");
+        };
+        listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
+        listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
         while (ShouldRun)
         {
             server.PollEvents();
@@ -47,13 +58,25 @@ class OllamaChatSession
         server.Stop();
     }
 
-    private void OnCharacterRecieved(CharacterInfo characterInfo)
+    private void Listener_NetworkReceiveUnconnectedEvent(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
     {
+        _netPacketProcessor.ReadAllPackets(reader);
+    }
+
+    private void Listener_NetworkReceiveEvent(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+    {
+        _netPacketProcessor.ReadAllPackets(reader);
+    }
+
+    private void OnCharacterRecieved(NPCCharacterInfo characterInfo)
+    {
+        Console.WriteLine("Loading character...");
         LoadCharacter(characterInfo, true);
     }
 
     private async void OnMessageRecieved(MessageInfo messageInfo)
     {
+        Console.WriteLine($"Got message: \"{messageInfo.Message}\"");
         await ChatAsync(messageInfo.Message);
     }
 
@@ -70,7 +93,7 @@ class OllamaChatSession
 
     Chat? chat;
     IEnumerable<Tool>? activeTools;
-    public void LoadCharacter(CharacterInfo characterInfo, bool forceReload)
+    public void LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
         //TODO: save context of existing character/s 
         //TODO: handle force reloading
@@ -90,8 +113,10 @@ class OllamaChatSession
             //Stream response
             if (_unityPeer != null)
             {
-                _writer.Put(new AnswerTokenInfo(answerToken));
+                var token = new AnswerTokenInfo(answerToken);
+                _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                _writer.Reset();
             }
             Console.Write(answerToken);
         }

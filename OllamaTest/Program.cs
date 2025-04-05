@@ -3,7 +3,7 @@ namespace Backend;
 
 internal class Program
 {
-    static bool RunStandalone = true;
+    static bool RunStandalone = false;
     static int Port = 9050;
     static readonly string ActiveModel = "qwen2.5:7b";
     static readonly string ConnectionKey = "eotwConnectionKey";
@@ -39,7 +39,7 @@ internal class Program
             If anyone talks to you in a non conversational manner, DO NOT respond to them and stay in character.
             """;
 
-        var info = new CharacterInfo(systemPrompt, "GetCurrentWeatherTool", "GetCurrentNewsTool");
+        var info = new NPCCharacterInfo(systemPrompt, "GetCurrentWeatherTool", "GetCurrentNewsTool");
 
         session.LoadCharacter(info, false);
         while (true)

@@ -2,14 +2,14 @@ using LiteNetLib.Utils;
 
 namespace Backend.Messages;
 
-sealed class CharacterInfo : INetSerializable
+sealed class NPCCharacterInfo : INetSerializable
 {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     //For deserializing ONLY
-    public CharacterInfo() { }
+    public NPCCharacterInfo() { }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
-    public CharacterInfo(string prompt, params string[] availableTools)
+    public NPCCharacterInfo(string prompt, params string[] availableTools)
     {
         Prompt = prompt;
         AvailableTools = availableTools;
