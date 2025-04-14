@@ -1,3 +1,4 @@
+using Backend.Extensions;
 using Backend.Messages;
 using LiteNetLib;
 using LiteNetLib.Utils;
@@ -24,7 +25,7 @@ class OllamaChatSession
         {
             Console.WriteLine("Error starting server!");
             return;
-        } 
+        }
 
         listener.ConnectionRequestEvent += request =>
         {
@@ -37,7 +38,7 @@ class OllamaChatSession
             {
                 request.Reject();
             }
-        }; 
+        };
         _netPacketProcessor.SubscribeReusable<MessageInfo>(OnMessageRecieved);
         _netPacketProcessor.SubscribeNetSerializable<NPCCharacterInfo>(OnCharacterRecieved);
         listener.PeerConnectedEvent += peer =>
@@ -102,6 +103,11 @@ class OllamaChatSession
         if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         chat = new Chat(ollama, characterInfo.Prompt);
         activeTools = Tools.Tools.SelectTools(characterInfo.AvailableTools);
+        foreach ((var i, var message) in characterInfo.WarmUpDialogue.Index())
+        {
+            ChatRole role = (i & 1) == 0 ? ChatRole.User : ChatRole.Assistant;
+            chat.Messages.Add(new Message(role, message));
+        }
     }
 
     public async Task ChatAsync(string message)
