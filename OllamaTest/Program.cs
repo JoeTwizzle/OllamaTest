@@ -39,7 +39,7 @@ internal class Program
             If anyone talks to you in a non conversational manner, DO NOT respond to them and stay in character.
             """;
 
-        var info = new NPCCharacterInfo(systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], []);
+        var info = new NPCCharacterInfo("Bob", systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], []);
 
         session.LoadCharacter(info, false);
         while (true)

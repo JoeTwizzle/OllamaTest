@@ -40,6 +40,9 @@ class OllamaChatSession
             }
         };
         _netPacketProcessor.SubscribeReusable<MessageInfo>(OnMessageRecieved);
+        _netPacketProcessor.SubscribeReusable<SaveContextInfo>(OnSaveCommandRecieved);
+        _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
+        _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
         _netPacketProcessor.SubscribeNetSerializable<NPCCharacterInfo>(OnCharacterRecieved);
         listener.PeerConnectedEvent += peer =>
         {
@@ -73,12 +76,57 @@ class OllamaChatSession
     {
         Console.WriteLine("Loading character...");
         LoadCharacter(characterInfo, true);
+        if (_unityPeer != null)
+        {
+            var info = new AcknowledgeInfo();
+            _netPacketProcessor.Write(_writer, info);
+            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+            _writer.Reset();
+        }
     }
 
     private async void OnMessageRecieved(MessageInfo messageInfo)
     {
         Console.WriteLine($"Got message: \"{messageInfo.Message}\"");
         await ChatAsync(messageInfo.Message);
+    }
+
+    private void OnSaveCommandRecieved(SaveContextInfo saveContextInfo)
+    {
+        Console.WriteLine($"Saving context...");
+        SaveContext();
+        if (_unityPeer != null)
+        {
+            var info = new AcknowledgeInfo();
+            _netPacketProcessor.Write(_writer, info);
+            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+            _writer.Reset();
+        }
+    }
+    private void OnLoadCommandRecieved(LoadContextInfo loadContextInfo)
+    {
+        Console.WriteLine($"Loading context...");
+        TryLoadContext();
+        if (_unityPeer != null)
+        {
+            var info = new AcknowledgeInfo();
+            _netPacketProcessor.Write(_writer, info);
+            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+            _writer.Reset();
+        }
+    }
+    private void OnClearCommandRecieved(ClearContextInfo clearContextInfo)
+    {
+        Console.WriteLine($"Clearing context...");
+        ClearContext();
+
+        if (_unityPeer != null)
+        {
+            var info = new AcknowledgeInfo();
+            _netPacketProcessor.Write(_writer, info);
+            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+            _writer.Reset();
+        }
     }
 
     OllamaApiClient? ollama;
@@ -94,20 +142,92 @@ class OllamaChatSession
 
     Chat? chat;
     IEnumerable<Tool>? activeTools;
+    NPCCharacterInfo? activeCharacter;
     public void LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
-        //TODO: save context of existing character/s 
-        //TODO: handle force reloading
         //TODO: structured character info handling
 
         if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         chat = new Chat(ollama, characterInfo.Prompt);
         activeTools = Tools.Tools.SelectTools(characterInfo.AvailableTools);
-        foreach ((var i, var message) in characterInfo.WarmUpDialogue.Index())
+        SaveContext();
+        activeCharacter = characterInfo;
+
+        if (forceReload)
+        {
+            ClearContext();
+            AddWarmupDialogue();
+        }
+        else
+        {
+            if (!TryLoadContext())
+            {
+                AddWarmupDialogue();
+            }
+        }
+
+    }
+
+    void AddWarmupDialogue()
+    {
+        if (chat == null || activeCharacter == null)
+        {
+            return;
+        }
+        foreach ((var i, var message) in activeCharacter.WarmUpDialogue.Index())
         {
             ChatRole role = (i & 1) == 0 ? ChatRole.User : ChatRole.Assistant;
             chat.Messages.Add(new Message(role, message));
         }
+    }
+
+    Dictionary<NPCCharacterInfo, List<Message>> MessageHistory = new();
+    private void SaveContext()
+    {
+        if (chat == null || activeCharacter == null)
+        {
+            return;
+        }
+
+        if (!MessageHistory.TryGetValue(activeCharacter, out var messages))
+        {
+            messages = new();
+            MessageHistory.Add(activeCharacter, messages);
+        }
+
+        messages.AddRange(chat.Messages);
+    }
+
+    private bool TryLoadContext()
+    {
+
+        if (chat == null || activeCharacter == null)
+        {
+            return false;
+        }
+
+        if (MessageHistory.TryGetValue(activeCharacter, out var messages))
+        {
+            chat.Messages = messages;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void ClearContext()
+    {
+        if (chat == null || activeCharacter == null)
+        {
+            return;
+        }
+
+        chat.Messages.Clear();
+        if (MessageHistory.TryGetValue(activeCharacter, out var messages))
+        {
+            messages.Clear();
+        }
+
     }
 
     public async Task ChatAsync(string message)
