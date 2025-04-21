@@ -1,0 +1,41 @@
+using LiteNetLib.Utils;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Backend.Messages
+{
+    class SetCharacterInfo : INetSerializable
+    {
+
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+        public SetCharacterInfo()
+        {
+        }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+
+        public SetCharacterInfo(bool forceReload, NPCCharacterInfo nPCCharacterInfo)
+        {
+            ForceReload = forceReload;
+            NPCCharacterInfo = nPCCharacterInfo;
+        }
+
+        public bool ForceReload { get; set; }
+        public NPCCharacterInfo NPCCharacterInfo { get; set; }
+
+        public void Deserialize(NetDataReader reader)
+        {
+            ForceReload = reader.GetBool();
+            reader.Get<NPCCharacterInfo>(out var info, () => new());
+            NPCCharacterInfo = info;
+        }
+
+        public void Serialize(NetDataWriter writer)
+        {
+            writer.Put(ForceReload);
+            writer.Put(NPCCharacterInfo);
+        }
+    }
+}

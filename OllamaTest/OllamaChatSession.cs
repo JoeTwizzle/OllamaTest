@@ -43,7 +43,7 @@ class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<SaveContextInfo>(OnSaveCommandRecieved);
         _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<NPCCharacterInfo>(OnCharacterRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
@@ -72,10 +72,10 @@ class OllamaChatSession
         _netPacketProcessor.ReadAllPackets(reader);
     }
 
-    private void OnCharacterRecieved(NPCCharacterInfo characterInfo)
+    private void OnCharacterRecieved(SetCharacterInfo characterInfo)
     {
         Console.WriteLine("Loading character...");
-        LoadCharacter(characterInfo, true);
+        LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
         if (_unityPeer != null)
         {
             var info = new AcknowledgeInfo();
