@@ -25,9 +25,10 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
 
     public void Deserialize(NetDataReader reader)
     {
+        Name = reader.GetString();
         Prompt = reader.GetString();
         AvailableTools = reader.GetStringArray();
-        reader.GetStringArray();
+        WarmUpDialogue = reader.GetStringArray();
     }
 
     public bool Equals(NPCCharacterInfo? other)
@@ -37,6 +38,7 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
 
     public void Serialize(NetDataWriter writer)
     {
+        writer.Put(Name);
         writer.Put(Prompt);
         writer.PutArray(AvailableTools);
         writer.PutArray(WarmUpDialogue);
