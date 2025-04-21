@@ -132,7 +132,15 @@ class OllamaChatSession
     OllamaApiClient? ollama;
     public async Task InitOllama(string activeModel)
     {
-        ollama = await ConnectAsync();
+        try
+        {
+            ollama = await ConnectAsync();
+        }
+        catch (Exception)
+        {
+            Console.WriteLine("Error intializing Ollama. Ensure the Ollama background service is running!");
+            throw;
+        }
         await PullModel(ollama, activeModel);
         ollama.SelectedModel = activeModel;
 
