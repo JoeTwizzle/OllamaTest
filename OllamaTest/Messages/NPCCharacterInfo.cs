@@ -53,4 +53,9 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
     {
         return Name.GetHashCode();
     }
+
+    public override string? ToString()
+    {
+        return Name + Environment.NewLine + Prompt + Environment.NewLine;
+    }
 }

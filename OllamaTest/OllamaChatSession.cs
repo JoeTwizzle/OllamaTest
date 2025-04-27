@@ -4,6 +4,7 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
+using System.Data;
 using System.Net;
 
 namespace Backend;
@@ -75,6 +76,7 @@ class OllamaChatSession
     private void OnCharacterRecieved(SetCharacterInfo characterInfo)
     {
         Console.WriteLine("Loading character...");
+        Console.WriteLine(characterInfo);
         LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
         if (_unityPeer != null)
         {
@@ -154,7 +156,6 @@ class OllamaChatSession
     public void LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
         //TODO: structured character info handling
-
         if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         chat = new Chat(ollama, characterInfo.Prompt);
         activeTools = Tools.Tools.SelectTools(characterInfo.AvailableTools);
@@ -182,6 +183,7 @@ class OllamaChatSession
         {
             return;
         }
+        chat.Messages.Add(new Message(ChatRole.System, activeCharacter.Prompt));
         foreach ((var i, var message) in activeCharacter.WarmUpDialogue.Index())
         {
             ChatRole role = (i & 1) == 0 ? ChatRole.User : ChatRole.Assistant;
