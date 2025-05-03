@@ -249,7 +249,7 @@ class OllamaChatSession
             //Stream response
             if (_unityPeer != null)
             {
-                var token = new AnswerTokenInfo(answerToken);
+                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
                 _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
@@ -281,7 +281,7 @@ class OllamaChatSession
         var connected = false;
         do
         {
-            var url = "http://localhost:11434";
+            var url = "http://127.0.0.1:11435/";
             var uri = new Uri(url);
             Console.WriteLine($"Connecting to {uri} ...");
             try
