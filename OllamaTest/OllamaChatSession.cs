@@ -183,6 +183,10 @@ class OllamaChatSession
         {
             return;
         }
+        if (chat.Model.Contains("qwen3"))
+        {
+            activeCharacter.Prompt += " /no_think ";
+        }
         chat.Messages.Add(new Message(ChatRole.System, activeCharacter.Prompt));
         foreach ((var i, var message) in activeCharacter.WarmUpDialogue.Index())
         {

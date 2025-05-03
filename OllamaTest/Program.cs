@@ -5,7 +5,7 @@ internal class Program
 {
     static bool RunStandalone = false;
     static int Port = 9050;
-    static readonly string ActiveModel = "qwen2.5:7b";
+    static readonly string ActiveModel = "qwen3:8b";
     static readonly string ConnectionKey = "eotwConnectionKey";
     static async Task Main(string[] args)
     {
