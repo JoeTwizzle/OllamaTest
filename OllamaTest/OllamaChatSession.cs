@@ -285,7 +285,7 @@ class OllamaChatSession
         var connected = false;
         do
         {
-            var url = "http://127.0.0.1:11435/";
+            var url = "http://127.0.0.1:11434/";
             var uri = new Uri(url);
             Console.WriteLine($"Connecting to {uri} ...");
             try
@@ -296,6 +296,8 @@ class OllamaChatSession
             }
             catch (Exception ex)
             {
+                ollama?.Dispose();
+
                 Console.WriteLine(ex.ToString());
                 Console.WriteLine();
             }
