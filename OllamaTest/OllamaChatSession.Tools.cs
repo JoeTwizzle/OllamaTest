@@ -15,7 +15,8 @@ partial class OllamaChatSession
     public static readonly IEnumerable<Tool> AllTools =
     [
         new GetCurrentWeatherTool(),
-        new GetCurrentNewsTool()
+        new GetCurrentNewsTool(),
+        new GetMyHomeTool()
     ];
     public static IEnumerable<Tool> SelectTools(string[] tools)
     {
@@ -23,7 +24,25 @@ partial class OllamaChatSession
         return AllTools.Where(x => tools.Contains(x.GetType().Name));
     }
 
+    /// <summary>
+    /// Get which biome you have your home in.
+    /// </summary>
+    /// <returns>The biome you have your home located in.</returns>
+    [OllamaTool]
+    public static string GetMyHome()
+    {
+        if (Instance == null || Instance._worldInfo == null || Instance.activeCharacter == null)
+        {
+            return "No info available.";
+        }
 
+        var biome = Instance._worldInfo.NpcBiomeInfos.Where(x => x.NpcName == Instance.activeCharacter.Name).FirstOrDefault().BiomeName;
+        if (biome == null)
+        {
+            return "Your home biome is unknown.";
+        }
+        return $"You live in the {biome} biome!";
+    }
 
 
     /// <summary>
