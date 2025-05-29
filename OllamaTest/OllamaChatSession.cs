@@ -174,7 +174,16 @@ partial class OllamaChatSession
     {
         //TODO: structured character info handling
         if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
-        chat = new Chat(ollama, characterInfo.Prompt);
+        chat = new Chat(ollama, characterInfo.Prompt)
+        {
+            Options = new OllamaSharp.Models.RequestOptions()
+            {
+                TypicalP = 0.85f,
+                MiroStat = 2,
+                Temperature = 1.2f,
+                MinP = 0.05f
+            }
+        };
         activeTools = SelectTools(characterInfo.AvailableTools);
         SaveContext();
         activeCharacter = characterInfo;
@@ -264,30 +273,20 @@ partial class OllamaChatSession
     public async Task ChatAsync(string message)
     {
         if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-
-        chat.Messages.Add(new Message(ChatRole.User, message));
-        bool enableStreaming = false;
-        float schizophrenia = 1f; // 0.8 = normal, 0 = can deadlock and crash, 1+ = More incoherent and random
         //Send message
-        var request = new ChatRequest()
+
+        await foreach (var answerToken in chat.SendAsync(message, activeTools))
         {
-            Stream = enableStreaming,
-            Messages = chat.Messages,
-            Tools = activeTools,
-            Options = new OllamaSharp.Models.RequestOptions() { Temperature = schizophrenia, MiroStat = 2, TopP = 0.84f }
-        };
-        await foreach (var response in chat.Client.ChatAsync(request))
-        {
-            if (_unityPeer != null && response != null && response.Message.Content != null)
+            //Stream response
+            if (_unityPeer != null && !string.IsNullOrWhiteSpace(answerToken))
             {
-                var token = new AnswerTokenInfo(enableStreaming, activeCharacter?.Name ?? "", response.Message.Content);
+                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
                 _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
-                Console.Write(response.Message.Content);
             }
+            Console.Write(answerToken);
         }
-        Console.WriteLine();
     }
 
     private static async Task PullModel(OllamaApiClient ollama, string selectedModel)

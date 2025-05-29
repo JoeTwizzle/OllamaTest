@@ -5,14 +5,25 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
-    public static readonly IEnumerable<Tool> AllTools = [new GetCurrentWeatherTool(), new GetCurrentNewsTool()];
+    //I hate this but tools need to be static
+    public static OllamaChatSession? Instance;
+    public OllamaChatSession()
+    {
+        Instance ??= this;
+    }
+
+    public static readonly IEnumerable<Tool> AllTools =
+    [
+        new GetCurrentWeatherTool(),
+        new GetCurrentNewsTool()
+    ];
     public static IEnumerable<Tool> SelectTools(string[] tools)
     {
         //Not optimal perfomance but whatever
         return AllTools.Where(x => tools.Contains(x.GetType().Name));
     }
 
-    
+
 
 
     /// <summary>
@@ -28,7 +39,7 @@ partial class OllamaChatSession
         return $"Could not find news for {location} (category: {category}).";
     }
 
-  
+
 
     public enum Unit
     {
