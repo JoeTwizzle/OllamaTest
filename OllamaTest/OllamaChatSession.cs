@@ -4,18 +4,21 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
+using System;
 using System.Data;
 using System.Net;
 
 namespace Backend;
 
-class OllamaChatSession
+partial class OllamaChatSession
 {
     public bool ShouldRun { get; set; }
 
     private NetPeer? _unityPeer;
     private readonly NetPacketProcessor _netPacketProcessor = new NetPacketProcessor();
     private readonly NetDataWriter _writer = new NetDataWriter();
+    private QuestInfo? _rootQuestInfo;
+    private WorldInfo? _worldInfo;
 
     public void RunServer(int port, string connectionKey)
     {
@@ -45,6 +48,8 @@ class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
         _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
@@ -61,6 +66,16 @@ class OllamaChatSession
             server.PollEvents();
         }
         server.Stop();
+    }
+
+    private void OnWorldInfoRecieved(WorldInfo info)
+    {
+        _worldInfo = info;
+    }
+
+    private void OnQuestRootRecieved(QuestInfo info)
+    {
+        _rootQuestInfo = info;
     }
 
     private void Listener_NetworkReceiveUnconnectedEvent(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
@@ -105,6 +120,7 @@ class OllamaChatSession
             _writer.Reset();
         }
     }
+
     private void OnLoadCommandRecieved(LoadContextInfo loadContextInfo)
     {
         Console.WriteLine($"Loading context...");
@@ -117,6 +133,7 @@ class OllamaChatSession
             _writer.Reset();
         }
     }
+
     private void OnClearCommandRecieved(ClearContextInfo clearContextInfo)
     {
         Console.WriteLine($"Clearing context...");
@@ -158,7 +175,7 @@ class OllamaChatSession
         //TODO: structured character info handling
         if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         chat = new Chat(ollama, characterInfo.Prompt);
-        activeTools = Tools.Tools.SelectTools(characterInfo.AvailableTools);
+        activeTools = SelectTools(characterInfo.AvailableTools);
         SaveContext();
         activeCharacter = characterInfo;
 
@@ -247,19 +264,30 @@ class OllamaChatSession
     public async Task ChatAsync(string message)
     {
         if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+
+        chat.Messages.Add(new Message(ChatRole.User, message));
+        bool enableStreaming = false;
+        float schizophrenia = 1f; // 0.8 = normal, 0 = can deadlock and crash, 1+ = More incoherent and random
         //Send message
-        await foreach (var answerToken in chat.SendAsync(message, activeTools))
+        var request = new ChatRequest()
         {
-            //Stream response
-            if (_unityPeer != null)
+            Stream = enableStreaming,
+            Messages = chat.Messages,
+            Tools = activeTools,
+            Options = new OllamaSharp.Models.RequestOptions() { Temperature = schizophrenia, MiroStat = 2, TopP = 0.84f }
+        };
+        await foreach (var response in chat.Client.ChatAsync(request))
+        {
+            if (_unityPeer != null && response != null && response.Message.Content != null)
             {
-                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
+                var token = new AnswerTokenInfo(enableStreaming, activeCharacter?.Name ?? "", response.Message.Content);
                 _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
+                Console.Write(response.Message.Content);
             }
-            Console.Write(answerToken);
         }
+        Console.WriteLine();
     }
 
     private static async Task PullModel(OllamaApiClient ollama, string selectedModel)

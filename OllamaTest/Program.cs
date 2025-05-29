@@ -40,7 +40,7 @@ internal class Program
             """;
 
         var info = new NPCCharacterInfo("Bob", systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], []);
-
+        
         session.LoadCharacter(info, false);
         while (true)
         {
