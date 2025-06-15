@@ -16,8 +16,11 @@ partial class OllamaChatSession
     [
         new GetCurrentWeatherTool(),
         new GetCurrentNewsTool(),
-        new GetMyHomeTool()
+        new GetMyHomeTool(),
+        new GetMyQuestsTool(),
+        new SetQuestCompletedTool(),
     ];
+
     public static IEnumerable<Tool> SelectTools(string[] tools)
     {
         //Not optimal perfomance but whatever
@@ -31,6 +34,7 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetMyHome()
     {
+        Console.WriteLine($"{nameof(GetMyHome)} called");
         if (Instance == null || Instance._worldInfo == null || Instance.activeCharacter == null)
         {
             return "No info available.";
@@ -42,6 +46,43 @@ partial class OllamaChatSession
             return "Your home biome is unknown.";
         }
         return $"You live in the {biome} biome!";
+    }
+
+    /// <summary>
+    /// Get what quests you want someone to do for you.
+    /// </summary>
+    /// <returns>The Id and descriptions of quests that you want someone to do for you.</returns>
+    [OllamaTool]
+    public static string GetMyQuests()
+    {
+        Console.WriteLine($"{nameof(GetMyQuests)} called");
+        if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
+        {
+            return "No quests available.";
+        }
+
+
+
+        return "Not yet implemented";
+    }
+
+
+    /// <summary>
+    /// Sets a quest as completed. Use GetMyQuests() before calling this to get the quest id.
+    /// </summary>
+    /// <param name="questId">The identifier of the quest to complete.</param>
+    /// <returns>Status message about the operation</returns>
+    [OllamaTool]
+    public static string SetQuestCompleted(string questId)
+    {
+        Console.WriteLine($"{nameof(SetQuestCompleted)} called with id: {questId}");
+
+        if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
+        {
+            return "No info available.";
+        }
+
+        return "Not yet implemented.";
     }
 
 
