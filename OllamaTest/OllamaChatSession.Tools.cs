@@ -62,6 +62,8 @@ partial class OllamaChatSession
         }
 
 
+        
+
 
         return "Not yet implemented";
     }
@@ -73,9 +75,9 @@ partial class OllamaChatSession
     /// <param name="questId">The identifier of the quest to complete.</param>
     /// <returns>Status message about the operation</returns>
     [OllamaTool]
-    public static string SetQuestCompleted(string questId)
+    public static string SetQuestOrSubquestCompleted(string questId)
     {
-        Console.WriteLine($"{nameof(SetQuestCompleted)} called with id: {questId}");
+        Console.WriteLine($"{nameof(SetQuestOrSubquestCompleted)} called with id: {questId}");
 
         if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
         {
