@@ -89,14 +89,16 @@ partial class OllamaChatSession
 
     private void OnDescriptionInfoRecieved(GeneratedDescriptionInfo info)
     {
+        Console.WriteLine(info.RawDescription);
         var task = GenerateDescription(info);
-        task.RunSynchronously();
         task.Wait();
         var answer = task.Result;
         var response = new GeneratedResponseInfo(answer);
         if (_unityPeer != null)
         {
             _netPacketProcessor.Write(_writer, response);
+            Console.WriteLine(answer);
+
             _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
             _writer.Reset();
         }
