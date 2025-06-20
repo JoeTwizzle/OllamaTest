@@ -1,3 +1,4 @@
+using Backend.Quests.Generation;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
 
@@ -18,7 +19,7 @@ partial class OllamaChatSession
         new GetCurrentNewsTool(),
         new GetMyHomeTool(),
         new GetMyQuestsTool(),
-        new SetQuestCompletedTool(),
+        //new SetQuestCompletedTool(),
     ];
 
     public static IEnumerable<Tool> SelectTools(string[] tools)
@@ -61,23 +62,43 @@ partial class OllamaChatSession
             return "No quests available.";
         }
 
-
+        // Instance._rootQuestInfo.Npcs[CurrentNpc]
         
-
+        // {ID: "", Description: ""}
+        // {ID: "", Description: ""}
+        // {ID: "", Description: ""}
+        // {ID: "", Description: ""}
 
         return "Not yet implemented";
     }
 
+    [OllamaTool]
+    public static void ActivateQuest(string id)
+    {
+        Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {id}");
+        // Send queststateprogress event
+    }
+
+    [OllamaTool]
+    public static string GetLLMCompletableTasks()
+    {
+        Console.WriteLine($"{nameof(GetLLMCompletableTasks)} called");
+        // Quest for barnabas:
+        // BLABLABLA
+        // Task relating to barnabas:
+        // 
+        return "None";
+    }
 
     /// <summary>
-    /// Sets a quest as completed. Use GetMyQuests() before calling this to get the quest id.
+    /// Sets a task as completed. Must always use GetLLMCompletableTasks() before calling this to get the quest id.
     /// </summary>
     /// <param name="questId">The identifier of the quest to complete.</param>
     /// <returns>Status message about the operation</returns>
     [OllamaTool]
-    public static string SetQuestOrSubquestCompleted(string questId)
+    public static string MarkTaskAsComplete(string taskId)
     {
-        Console.WriteLine($"{nameof(SetQuestOrSubquestCompleted)} called with id: {questId}");
+        Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {taskId}");
 
         if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
         {

@@ -47,9 +47,10 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<SaveContextInfo>(OnSaveCommandRecieved);
         _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
@@ -66,6 +67,33 @@ partial class OllamaChatSession
             server.PollEvents();
         }
         server.Stop();
+    }
+
+    private void OnDescriptionInfoRecieved(GeneratedDescriptionInfo info)
+    {
+        var task = GenerateDescription(info);
+        task.RunSynchronously();
+        task.Wait();
+        var answer = task.Result;
+        var response = new GeneratedResponseInfo(answer);
+        if (_unityPeer != null)
+        {
+            _netPacketProcessor.Write(_writer, response);
+            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+            _writer.Reset();
+        }
+    }
+
+    async Task<string> GenerateDescription(GeneratedDescriptionInfo info)
+    {
+        if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+        //Send message
+        string answer = "";
+        await foreach (var answerToken in chat.SendAsync(info.RawDescription, activeTools))
+        {
+            answer += answerToken;
+        }
+        return answer.Trim().Replace("\n", null);
     }
 
     private void OnWorldInfoRecieved(WorldInfo info)
