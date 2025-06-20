@@ -13,13 +13,19 @@ partial class OllamaChatSession
     {
         Instance ??= this;
     }
-
+    //TODO: RENAME THIS SHIT
+    //CommissionedQuest?
+    //UnfulfilledQuests?
+    //change npc prompt
+    //MAKE MORE CONSISTENT
+    //Change temp settings
     public static readonly IEnumerable<Tool> AllTools =
     [
         new GetCurrentWeatherTool(),
         new GetCurrentNewsTool(),
         new GetMyHomeTool(),
         new GetMyQuestsTool(),
+        new GetCurrentQuestTool(),
         new GetLLMCompletableTasksTool(),
         new ActivateQuestTool(),
         new MarkTaskAsCompleteTool(),
@@ -53,9 +59,9 @@ partial class OllamaChatSession
     }
 
     /// <summary>
-    /// Get what quests you want someone to do for you.
+    /// Get what quests you want the player to do for you.
     /// </summary>
-    /// <returns>The Id and descriptions of quests that you want someone to do for you.</returns>
+    /// <returns>The Id and descriptions of quests that you want the player to do for you.</returns>
     [OllamaTool]
     public static string GetMyQuests()
     {
@@ -65,10 +71,30 @@ partial class OllamaChatSession
         {
             return "No quests available";
         }
-
+        Console.WriteLine(quests);
         return quests;
     }
+    /// <summary>
+    /// Returns the current quest you have tasked the player with
+    /// </summary>
+    /// <returns>Your currently active quest</returns>
+    [OllamaTool]
+    public static string GetCurrentQuest()
+    {
+        Console.WriteLine($"{nameof(GetCurrentQuest)} called");
 
+        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCurrentQuest.TryGetValue(Instance.activeCharacter.Name, out var quest))
+        {
+            return "No quest activated";
+        }
+        Console.WriteLine(quest);
+        return quest;
+    }
+    /// <summary>
+    /// Sets a quest active by id use GetMyQuests to get the id
+    /// </summary>
+    /// <param name="id">The Id of the quest to activate</param>
+    /// <returns>Info about the result of this operation</returns>
     [OllamaTool]
     public static string ActivateQuest(string id)
     {
@@ -92,7 +118,10 @@ partial class OllamaChatSession
         return $"Could not start quest with id: {id} Make sure its id was spelled correctly and try again.";
     }
 
-
+    /// <summary>
+    /// Get which tasks you can mark as complete
+    /// </summary>
+    /// <returns>Info about the result of this operation</returns>
     [OllamaTool]
     public static string GetLLMCompletableTasks()
     {
@@ -107,9 +136,9 @@ partial class OllamaChatSession
     }
 
     /// <summary>
-    /// Sets a task as completed. Must always use GetLLMCompletableTasks() before calling this to get the quest id.
+    /// Sets a task as completed. Must always use GetLLMCompletableTasks() before calling this to get the task id.
     /// </summary>
-    /// <param name="questId">The identifier of the quest to complete.</param>
+    /// <param name="taskId">The identifier of the task to complete.</param>
     /// <returns>Status message about the operation</returns>
     [OllamaTool]
     public static string MarkTaskAsComplete(string taskId)
@@ -118,7 +147,7 @@ partial class OllamaChatSession
 
         if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
         {
-            return $"Could not start quest with id: {taskId} Not connected to the game.";
+            return $"Could not complete task id: {taskId} Not connected to the game.";
         }
 
         if (Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks) && tasks.Contains(taskId))

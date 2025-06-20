@@ -53,6 +53,7 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateTasksInfo>(OnTaskInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<UpdateActiveQuestsInfo>(OnActiveQuestInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
         listener.PeerConnectedEvent += peer =>
         {
@@ -72,13 +73,20 @@ partial class OllamaChatSession
         server.Stop();
     }
 
-    Dictionary<string, string> NpcAvailableQuests = new();
-    Dictionary<string, string> NpcCompletableTasks = new();
+    readonly Dictionary<string, string> NpcCurrentQuest = new();
+    readonly Dictionary<string, string> NpcAvailableQuests = new();
+    readonly Dictionary<string, string> NpcCompletableTasks = new();
 
     private void OnQuestInfoRecieved(UpdateQuestsInfo info)
     {
         ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcAvailableQuests, info.Name, out _);
         value = info.Quests;
+    }
+
+    private void OnActiveQuestInfoRecieved(UpdateActiveQuestsInfo info)
+    {
+        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCurrentQuest, info.Name, out _);
+        value = info.Quest;
     }
 
     private void OnTaskInfoRecieved(UpdateTasksInfo info)
@@ -320,21 +328,30 @@ partial class OllamaChatSession
 
     public async Task ChatAsync(string message)
     {
-        if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-        //Send message
-
-        await foreach (var answerToken in chat.SendAsync(message, activeTools))
+        try
         {
-            //Stream response
-            if (_unityPeer != null && !string.IsNullOrWhiteSpace(answerToken))
+            if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+            //Send message
+
+            await foreach (var answerToken in chat.SendAsync(message, activeTools))
             {
-                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
-                _netPacketProcessor.WriteNetSerializable(_writer, ref token);
-                _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-                _writer.Reset();
+                //Stream response
+                if (_unityPeer != null && !string.IsNullOrWhiteSpace(answerToken))
+                {
+                    var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
+                    _netPacketProcessor.WriteNetSerializable(_writer, ref token);
+                    _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                    _writer.Reset();
+                }
+                Console.Write(answerToken);
             }
-            Console.Write(answerToken);
         }
+        catch (Exception)
+        {
+
+            Console.WriteLine("Error in chatAsync");
+        }
+
     }
 
     private static async Task PullModel(OllamaApiClient ollama, string selectedModel)
