@@ -1,4 +1,6 @@
+using Backend.Messages;
 using Backend.Quests.Generation;
+using LiteNetLib;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
 
@@ -57,37 +59,50 @@ partial class OllamaChatSession
     public static string GetMyQuests()
     {
         Console.WriteLine($"{nameof(GetMyQuests)} called");
-        if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
+
+        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests))
         {
-            return "No quests available.";
+            return "No quests available";
         }
 
-        // Instance._rootQuestInfo.Npcs[CurrentNpc]
-        
-        // {ID: "", Description: ""}
-        // {ID: "", Description: ""}
-        // {ID: "", Description: ""}
-        // {ID: "", Description: ""}
-
-        return "Not yet implemented";
+        return quests;
     }
 
     [OllamaTool]
-    public static void ActivateQuest(string id)
+    public static string ActivateQuest(string id)
     {
         Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {id}");
-        // Send queststateprogress event
+
+
+        if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
+        {
+            return $"Could not start quest with id: {id} Not connected to the game.";
+        }
+
+        if (Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests) && quests.Contains(id))
+        {
+            var response = new QuestStartedInfo(id);
+            Instance._netPacketProcessor.Write(Instance._writer, response);
+            Instance._unityPeer.Send(Instance._writer, DeliveryMethod.ReliableOrdered);
+            Instance._writer.Reset();
+            return $"Successfully started quest with id: {id}";
+        }
+
+        return $"Could not start quest with id: {id} Make sure its id was spelled correctly and try again.";
     }
+
 
     [OllamaTool]
     public static string GetLLMCompletableTasks()
     {
         Console.WriteLine($"{nameof(GetLLMCompletableTasks)} called");
-        // Quest for barnabas:
-        // BLABLABLA
-        // Task relating to barnabas:
-        // 
-        return "None";
+
+        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks))
+        {
+            return "No tasks available";
+        }
+
+        return tasks;
     }
 
     /// <summary>
@@ -100,12 +115,21 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {taskId}");
 
-        if (Instance == null || Instance._rootQuestInfo == null || Instance.activeCharacter == null)
+        if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
         {
-            return "No info available.";
+            return $"Could not start quest with id: {taskId} Not connected to the game.";
         }
 
-        return "Not yet implemented.";
+        if (Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks) && tasks.Contains(taskId))
+        {
+            var response = new TaskCompletedInfo(taskId);
+            Instance._netPacketProcessor.Write(Instance._writer, response);
+            Instance._unityPeer.Send(Instance._writer, DeliveryMethod.ReliableOrdered);
+            Instance._writer.Reset();
+            return $"Successfully completed task with id: {taskId}";
+        }
+
+        return $"Could not completet task with id: {taskId} Make sure its id was spelled correctly and try again.";
     }
 
 
@@ -121,8 +145,6 @@ partial class OllamaChatSession
         category = string.IsNullOrEmpty(category) ? "all" : category;
         return $"Could not find news for {location} (category: {category}).";
     }
-
-
 
     public enum Unit
     {

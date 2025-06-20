@@ -7,6 +7,7 @@ using OllamaSharp.Models.Chat;
 using System;
 using System.Data;
 using System.Net;
+using System.Runtime.InteropServices;
 
 namespace Backend;
 
@@ -49,6 +50,8 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<UpdateTasksInfo>(OnTaskInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
         _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
         listener.PeerConnectedEvent += peer =>
@@ -67,6 +70,21 @@ partial class OllamaChatSession
             server.PollEvents();
         }
         server.Stop();
+    }
+
+    Dictionary<string, string> NpcAvailableQuests = new();
+    Dictionary<string, string> NpcCompletableTasks = new();
+
+    private void OnQuestInfoRecieved(UpdateQuestsInfo info)
+    {
+        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcAvailableQuests, info.Name, out _);
+        value = info.Quests;
+    }
+
+    private void OnTaskInfoRecieved(UpdateTasksInfo info)
+    {
+        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCompletableTasks, info.Name, out _);
+        value = info.Quests;
     }
 
     private void OnDescriptionInfoRecieved(GeneratedDescriptionInfo info)
