@@ -20,7 +20,9 @@ partial class OllamaChatSession
         new GetCurrentNewsTool(),
         new GetMyHomeTool(),
         new GetMyQuestsTool(),
-        //new SetQuestCompletedTool(),
+        new GetLLMCompletableTasksTool(),
+        new ActivateQuestTool(),
+        new MarkTaskAsCompleteTool(),
     ];
 
     public static IEnumerable<Tool> SelectTools(string[] tools)
