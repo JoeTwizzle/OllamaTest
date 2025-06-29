@@ -16,8 +16,8 @@ partial class OllamaChatSession
     public bool ShouldRun { get; set; }
 
     private NetPeer? _unityPeer;
-    private readonly NetPacketProcessor _netPacketProcessor = new NetPacketProcessor();
-    private readonly NetDataWriter _writer = new NetDataWriter();
+    private readonly NetPacketProcessor _netPacketProcessor = new();
+    private readonly NetDataWriter _writer = new();
     private QuestInfo? _rootQuestInfo;
     private WorldInfo? _worldInfo;
 
@@ -161,7 +161,14 @@ partial class OllamaChatSession
     private async void OnMessageRecieved(MessageInfo messageInfo)
     {
         Console.WriteLine($"Got message: \"{messageInfo.Message}\"");
-        await ChatAsync(messageInfo.Message);
+        try
+        {
+            await ChatAsync(messageInfo.Message);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     private void OnSaveCommandRecieved(SaveContextInfo saveContextInfo)
@@ -234,10 +241,12 @@ partial class OllamaChatSession
         {
             Options = new OllamaSharp.Models.RequestOptions()
             {
-                TypicalP = 0.85f,
+                PresencePenalty = 0.5f,
+                TopP = 0.8f,
+                TopK = 20,
+                MinP = 0,
                 MiroStat = 2,
-                Temperature = 1.2f,
-                MinP = 0.05f
+                Temperature = 0.7f,
             }
         };
         activeTools = SelectTools(characterInfo.AvailableTools);
@@ -348,10 +357,8 @@ partial class OllamaChatSession
         }
         catch (Exception)
         {
-
             Console.WriteLine("Error in chatAsync");
         }
-
     }
 
     private static async Task PullModel(OllamaApiClient ollama, string selectedModel)

@@ -67,8 +67,15 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(GetMyQuests)} called");
 
-        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests))
+        if (Instance == null || Instance.activeCharacter == null)
         {
+            Console.WriteLine($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?.activeCharacter == null}");
+            return "No quests available";
+        }
+
+        if (!Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests) || string.IsNullOrWhiteSpace(quests))
+        {
+            Console.WriteLine($"Failed. No active quests for {Instance.activeCharacter.Name}");
             return "No quests available";
         }
         Console.WriteLine(quests);
