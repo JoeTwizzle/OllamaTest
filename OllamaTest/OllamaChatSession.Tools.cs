@@ -21,14 +21,14 @@ partial class OllamaChatSession
     //Change temp settings
     public static readonly IEnumerable<Tool> AllTools =
     [
-        new GetCurrentWeatherTool(),
-        new GetCurrentNewsTool(),
+        //new GetCurrentWeatherTool(),
+        //new GetCurrentNewsTool(),
         new GetMyHomeTool(),
-        new GetMyQuestsTool(),
-        new GetCurrentQuestTool(),
-        new GetLLMCompletableTasksTool(),
-        new ActivateQuestTool(),
-        new MarkTaskAsCompleteTool(),
+        new GetQuestsForPlayerTool(),
+        new StartPlayerQuestTool(),
+        new GetCurrentPlayerActiveQuestTool(),
+        new GetCompletableJobsTool(),
+        new MarkJobAsCompleteTool(),
     ];
 
     public static IEnumerable<Tool> SelectTools(string[] tools)
@@ -63,9 +63,9 @@ partial class OllamaChatSession
     /// </summary>
     /// <returns>The Id and descriptions of quests that you want the player to do for you.</returns>
     [OllamaTool]
-    public static string GetMyQuests()
+    public static string GetQuestsForPlayer()
     {
-        Console.WriteLine($"{nameof(GetMyQuests)} called");
+        Console.WriteLine($"{nameof(GetQuestsForPlayer)} called");
 
         if (Instance == null || Instance.activeCharacter == null)
         {
@@ -79,16 +79,16 @@ partial class OllamaChatSession
             return "No quests available";
         }
         Console.WriteLine(quests);
-        return quests;
+        return "The quests that you want the player to do are: \"" + quests + "\"";
     }
     /// <summary>
-    /// Returns the current quest you have tasked the player with
+    /// Returns the current quest you have asked the player to do
     /// </summary>
     /// <returns>Your currently active quest</returns>
     [OllamaTool]
-    public static string GetCurrentQuest()
+    public static string GetCurrentPlayerActiveQuest()
     {
-        Console.WriteLine($"{nameof(GetCurrentQuest)} called");
+        Console.WriteLine($"{nameof(GetCurrentPlayerActiveQuest)} called");
 
         if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCurrentQuest.TryGetValue(Instance.activeCharacter.Name, out var quest))
         {
@@ -98,14 +98,14 @@ partial class OllamaChatSession
         return quest;
     }
     /// <summary>
-    /// Sets a quest active by id use GetMyQuests to get the id
+    /// Starts a quest for the player! MUST Use GetQuestsForPlayer to get the id
     /// </summary>
-    /// <param name="id">The Id of the quest to activate</param>
+    /// <param name="id">The Id of the quest to start</param>
     /// <returns>Info about the result of this operation</returns>
     [OllamaTool]
-    public static string ActivateQuest(string id)
+    public static string StartPlayerQuest(string id)
     {
-        Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {id}");
+        Console.WriteLine($"{nameof(StartPlayerQuest)} called with id: {id}");
 
 
         if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
@@ -126,13 +126,13 @@ partial class OllamaChatSession
     }
 
     /// <summary>
-    /// Get which tasks you can mark as complete
+    /// Get which jobs you can mark as complete
     /// </summary>
     /// <returns>Info about the result of this operation</returns>
     [OllamaTool]
-    public static string GetLLMCompletableTasks()
+    public static string GetCompletableJobs()
     {
-        Console.WriteLine($"{nameof(GetLLMCompletableTasks)} called");
+        Console.WriteLine($"{nameof(GetCompletableJobs)} called");
 
         if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks))
         {
@@ -143,30 +143,30 @@ partial class OllamaChatSession
     }
 
     /// <summary>
-    /// Sets a task as completed. Must always use GetLLMCompletableTasks() before calling this to get the task id.
+    /// Sets a job as completed. Must always use GetCompletableJobs before calling this to get the job id.
     /// </summary>
-    /// <param name="taskId">The identifier of the task to complete.</param>
+    /// <param name="jobId">The identifier of the job to complete.</param>
     /// <returns>Status message about the operation</returns>
     [OllamaTool]
-    public static string MarkTaskAsComplete(string taskId)
+    public static string MarkJobAsComplete(string jobId)
     {
-        Console.WriteLine($"{nameof(MarkTaskAsComplete)} called with id: {taskId}");
+        Console.WriteLine($"{nameof(MarkJobAsComplete)} called with id: {jobId}");
 
         if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
         {
-            return $"Could not complete task id: {taskId} Not connected to the game.";
+            return $"Could not complete job id: {jobId} Not connected to the game.";
         }
 
-        if (Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks) && tasks.Contains(taskId))
+        if (Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks) && tasks.Contains(jobId))
         {
-            var response = new TaskCompletedInfo(taskId);
+            var response = new TaskCompletedInfo(jobId);
             Instance._netPacketProcessor.Write(Instance._writer, response);
             Instance._unityPeer.Send(Instance._writer, DeliveryMethod.ReliableOrdered);
             Instance._writer.Reset();
-            return $"Successfully completed task with id: {taskId}";
+            return $"Successfully completed job with id: {jobId}";
         }
 
-        return $"Could not completet task with id: {taskId} Make sure its id was spelled correctly and try again.";
+        return $"Could not completet job with id: {jobId} Make sure its id was spelled correctly and try again.";
     }
 
 

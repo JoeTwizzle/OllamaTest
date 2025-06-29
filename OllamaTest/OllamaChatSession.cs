@@ -245,11 +245,18 @@ partial class OllamaChatSession
                 TopP = 0.8f,
                 TopK = 20,
                 MinP = 0,
-                MiroStat = 2,
                 Temperature = 0.7f,
             }
         };
         activeTools = SelectTools(characterInfo.AvailableTools);
+        if (!activeTools.Any())
+        {
+            Console.WriteLine("NO TOOLS ACTIVE");
+        }
+        else
+        {
+            Console.WriteLine("TOOLS: " + string.Join(", ", activeTools.Select(t => t.Function?.Name)));
+        }
         SaveContext();
         activeCharacter = characterInfo;
 
@@ -265,7 +272,6 @@ partial class OllamaChatSession
                 AddWarmupDialogue();
             }
         }
-
     }
 
     void AddWarmupDialogue()
@@ -276,7 +282,7 @@ partial class OllamaChatSession
         }
         if (chat.Model.Contains("qwen3"))
         {
-            activeCharacter.Prompt += " /no_think ";
+            chat.Think = false;
         }
         chat.Messages.Add(new Message(ChatRole.System, activeCharacter.Prompt));
         foreach ((var i, var message) in activeCharacter.WarmUpDialogue.Index())
@@ -341,18 +347,27 @@ partial class OllamaChatSession
         {
             if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
             //Send message
-
+            string response = "";
             await foreach (var answerToken in chat.SendAsync(message, activeTools))
             {
-                //Stream response
-                if (_unityPeer != null && !string.IsNullOrWhiteSpace(answerToken))
-                {
-                    var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", answerToken);
-                    _netPacketProcessor.WriteNetSerializable(_writer, ref token);
-                    _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-                    _writer.Reset();
-                }
-                Console.Write(answerToken);
+                response += answerToken;
+            }
+            int start = response.IndexOf("<think>");
+            int end = response.IndexOf("</think>") + "</think>".Length;
+            if (start != -1 && end != -1)
+            {
+                response = response.Remove(start, end - start);
+            }
+            response = response.Trim('\n', '\r', ' ');
+            Console.WriteLine(response);
+
+            //Stream response
+            if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
+            {
+                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", response);
+                _netPacketProcessor.WriteNetSerializable(_writer, ref token);
+                _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                _writer.Reset();
             }
         }
         catch (Exception)
