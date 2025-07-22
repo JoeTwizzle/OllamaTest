@@ -146,7 +146,8 @@ partial class OllamaChatSession
         {
             messages.Clear();
         }
-
+        //TODO: Make RAG unique per character
+        //ClearDocuments();
     }
 
     public async Task ChatAsync(string message)

@@ -15,6 +15,12 @@ partial class OllamaChatSession
     private const float SimilarityThreshold = 0.2f; // Minimum relevance threshold
     private readonly List<Document> _documents = [];
     private record Document(string Text, List<float[]> Embedding);
+
+    public void ClearDocuments()
+    {
+        _documents.Clear();
+    }
+
     public async Task AddDocument(string text)
     {
         if (_ollama == null)
@@ -65,7 +71,7 @@ partial class OllamaChatSession
         // Build RAG prompt
         var prompt = $"""
             You may use the following context to aid your answer to a question. 
-            If you don't know the answer, just say so and ask the user to specify what they mean.
+            If you don't know the answer, just say so OR ask the user to specify what they mean.
             
             Context:
             {bestMatch.Document.Text}
@@ -111,5 +117,4 @@ partial class OllamaChatSession
 
         return maxSimilarity == float.MinValue ? 0 : maxSimilarity;
     }
-
 }
