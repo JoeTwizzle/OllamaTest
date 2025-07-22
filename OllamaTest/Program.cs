@@ -6,6 +6,7 @@ internal class Program
     static bool RunStandalone = false;
     static int Port = 9050;
     static readonly string ActiveModel = "qwen3:latest";
+    static readonly string EmbeddingModel = "nomic-embed-text";
     static readonly string ConnectionKey = "eotwConnectionKey";
     static async Task Main(string[] args)
     {
@@ -16,7 +17,7 @@ internal class Program
         }
 
         OllamaChatSession session = new();
-        await session.InitOllama(ActiveModel);
+        await session.InitOllama(ActiveModel, EmbeddingModel);
 
         //Local chat only. No server communication.
         if (RunStandalone)
@@ -40,7 +41,7 @@ internal class Program
             """;
 
         var info = new NPCCharacterInfo("Bob", systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], []);
-        
+
         session.LoadCharacter(info, false);
         while (true)
         {

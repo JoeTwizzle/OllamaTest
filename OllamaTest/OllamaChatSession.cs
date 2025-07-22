@@ -13,231 +13,39 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
-    public bool ShouldRun { get; set; }
-
-    private NetPeer? _unityPeer;
-    private readonly NetPacketProcessor _netPacketProcessor = new();
-    private readonly NetDataWriter _writer = new();
-    private QuestInfo? _rootQuestInfo;
-    private WorldInfo? _worldInfo;
-
-    public void RunServer(int port, string connectionKey)
-    {
-        ShouldRun = true;
-        EventBasedNetListener listener = new EventBasedNetListener();
-        NetManager server = new NetManager(listener);
-        if (!server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port))
-        {
-            Console.WriteLine("Error starting server!");
-            return;
-        }
-
-        listener.ConnectionRequestEvent += request =>
-        {
-            //Only allow one connection max
-            if (server.ConnectedPeersCount == 0)
-            {
-                request.AcceptIfKey(connectionKey);
-            }
-            else
-            {
-                request.Reject();
-            }
-        };
-        _netPacketProcessor.SubscribeReusable<MessageInfo>(OnMessageRecieved);
-        _netPacketProcessor.SubscribeReusable<SaveContextInfo>(OnSaveCommandRecieved);
-        _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
-        _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<UpdateTasksInfo>(OnTaskInfoRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<UpdateActiveQuestsInfo>(OnActiveQuestInfoRecieved);
-        _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
-        listener.PeerConnectedEvent += peer =>
-        {
-            _unityPeer = peer;
-            Console.WriteLine("Unity connected!");
-        };
-        listener.PeerDisconnectedEvent += (peer, info) =>
-        {
-            Console.WriteLine("Unity disconnected!");
-        };
-        listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
-        listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
-        while (ShouldRun)
-        {
-            server.PollEvents();
-        }
-        server.Stop();
-    }
-
-    readonly Dictionary<string, string> NpcCurrentQuest = new();
-    readonly Dictionary<string, string> NpcAvailableQuests = new();
-    readonly Dictionary<string, string> NpcCompletableTasks = new();
-
-    private void OnQuestInfoRecieved(UpdateQuestsInfo info)
-    {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcAvailableQuests, info.Name, out _);
-        value = info.Quests;
-    }
-
-    private void OnActiveQuestInfoRecieved(UpdateActiveQuestsInfo info)
-    {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCurrentQuest, info.Name, out _);
-        value = info.Quest;
-    }
-
-    private void OnTaskInfoRecieved(UpdateTasksInfo info)
-    {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCompletableTasks, info.Name, out _);
-        value = info.Quests;
-    }
-
-    private void OnDescriptionInfoRecieved(GeneratedDescriptionInfo info)
-    {
-        Console.WriteLine(info.RawDescription);
-        var task = GenerateDescription(info);
-        task.Wait();
-        var answer = task.Result;
-        var response = new GeneratedResponseInfo(answer);
-        if (_unityPeer != null)
-        {
-            _netPacketProcessor.Write(_writer, response);
-            Console.WriteLine(answer);
-
-            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-            _writer.Reset();
-        }
-    }
-
-    async Task<string> GenerateDescription(GeneratedDescriptionInfo info)
-    {
-        if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-        //Send message
-        string answer = "";
-        await foreach (var answerToken in chat.SendAsync(info.RawDescription, activeTools))
-        {
-            answer += answerToken;
-        }
-        return answer.Trim().Replace("\n", null);
-    }
-
-    private void OnWorldInfoRecieved(WorldInfo info)
-    {
-        _worldInfo = info;
-    }
-
-    private void OnQuestRootRecieved(QuestInfo info)
-    {
-        _rootQuestInfo = info;
-    }
-
-    private void Listener_NetworkReceiveUnconnectedEvent(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
-    {
-        _netPacketProcessor.ReadAllPackets(reader);
-    }
-
-    private void Listener_NetworkReceiveEvent(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
-    {
-        _netPacketProcessor.ReadAllPackets(reader);
-    }
-
-    private void OnCharacterRecieved(SetCharacterInfo characterInfo)
-    {
-        Console.WriteLine("Loading character...");
-        Console.WriteLine(characterInfo);
-        LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
-        if (_unityPeer != null)
-        {
-            var info = new AcknowledgeInfo();
-            _netPacketProcessor.Write(_writer, info);
-            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-            _writer.Reset();
-        }
-    }
-
-    private async void OnMessageRecieved(MessageInfo messageInfo)
-    {
-        Console.WriteLine($"Got message: \"{messageInfo.Message}\"");
-        try
-        {
-            await ChatAsync(messageInfo.Message);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-    }
-
-    private void OnSaveCommandRecieved(SaveContextInfo saveContextInfo)
-    {
-        Console.WriteLine($"Saving context...");
-        SaveContext();
-        if (_unityPeer != null)
-        {
-            var info = new AcknowledgeInfo();
-            _netPacketProcessor.Write(_writer, info);
-            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-            _writer.Reset();
-        }
-    }
-
-    private void OnLoadCommandRecieved(LoadContextInfo loadContextInfo)
-    {
-        Console.WriteLine($"Loading context...");
-        TryLoadContext();
-        if (_unityPeer != null)
-        {
-            var info = new AcknowledgeInfo();
-            _netPacketProcessor.Write(_writer, info);
-            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-            _writer.Reset();
-        }
-    }
-
-    private void OnClearCommandRecieved(ClearContextInfo clearContextInfo)
-    {
-        Console.WriteLine($"Clearing context...");
-        ClearContext();
-
-        if (_unityPeer != null)
-        {
-            var info = new AcknowledgeInfo();
-            _netPacketProcessor.Write(_writer, info);
-            _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-            _writer.Reset();
-        }
-    }
-
-    OllamaApiClient? ollama;
-    public async Task InitOllama(string activeModel)
+    OllamaApiClient? _ollama;
+    Chat? _chat;
+    IEnumerable<Tool>? _activeTools;
+    NPCCharacterInfo? _activeCharacter;
+    string? _embeddingModel;
+    public async Task InitOllama(string activeModel, string? embeddingModel = null)
     {
         try
         {
-            ollama = await ConnectAsync();
+            _ollama = await ConnectAsync();
         }
         catch (Exception)
         {
             Console.WriteLine("Error intializing Ollama. Ensure the Ollama background service is running!");
             throw;
         }
-        await PullModel(ollama, activeModel);
-        ollama.SelectedModel = activeModel;
+        await PullModel(_ollama, activeModel);
+        if (embeddingModel != null)
+        {
+            await PullModel(_ollama, embeddingModel);
+        }
+        _embeddingModel = embeddingModel;
+        _ollama.SelectedModel = activeModel;
 
         Console.WriteLine("System initialized!");
         Console.WriteLine();
     }
 
-    Chat? chat;
-    IEnumerable<Tool>? activeTools;
-    NPCCharacterInfo? activeCharacter;
     public void LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
         //TODO: structured character info handling
-        if (ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
-        chat = new Chat(ollama, characterInfo.Prompt)
+        if (_ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
+        _chat = new Chat(_ollama, characterInfo.Prompt)
         {
             Options = new OllamaSharp.Models.RequestOptions()
             {
@@ -248,17 +56,17 @@ partial class OllamaChatSession
                 Temperature = 0.7f,
             }
         };
-        activeTools = SelectTools(characterInfo.AvailableTools);
-        if (!activeTools.Any())
+        _activeTools = SelectTools(characterInfo.AvailableTools);
+        if (!_activeTools.Any())
         {
             Console.WriteLine("NO TOOLS ACTIVE");
         }
         else
         {
-            Console.WriteLine("TOOLS: " + string.Join(", ", activeTools.Select(t => t.Function?.Name)));
+            Console.WriteLine("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)));
         }
         SaveContext();
-        activeCharacter = characterInfo;
+        _activeCharacter = characterInfo;
 
         if (forceReload)
         {
@@ -276,50 +84,50 @@ partial class OllamaChatSession
 
     void AddWarmupDialogue()
     {
-        if (chat == null || activeCharacter == null)
+        if (_chat == null || _activeCharacter == null)
         {
             return;
         }
-        if (chat.Model.Contains("qwen3"))
+        if (_chat.Model.Contains("qwen3"))
         {
-            chat.Think = false;
+            _chat.Think = false;
         }
-        chat.Messages.Add(new Message(ChatRole.System, activeCharacter.Prompt));
-        foreach ((var i, var message) in activeCharacter.WarmUpDialogue.Index())
+        _chat.Messages.Add(new Message(ChatRole.System, _activeCharacter.Prompt));
+        foreach ((var i, var message) in _activeCharacter.WarmUpDialogue.Index())
         {
             ChatRole role = (i & 1) == 0 ? ChatRole.User : ChatRole.Assistant;
-            chat.Messages.Add(new Message(role, message));
+            _chat.Messages.Add(new Message(role, message));
         }
     }
 
     Dictionary<NPCCharacterInfo, List<Message>> MessageHistory = new();
     private void SaveContext()
     {
-        if (chat == null || activeCharacter == null)
+        if (_chat == null || _activeCharacter == null)
         {
             return;
         }
 
-        if (!MessageHistory.TryGetValue(activeCharacter, out var messages))
+        if (!MessageHistory.TryGetValue(_activeCharacter, out var messages))
         {
             messages = new();
-            MessageHistory.Add(activeCharacter, messages);
+            MessageHistory.Add(_activeCharacter, messages);
         }
 
-        messages.AddRange(chat.Messages);
+        messages.AddRange(_chat.Messages);
     }
 
     private bool TryLoadContext()
     {
 
-        if (chat == null || activeCharacter == null)
+        if (_chat == null || _activeCharacter == null)
         {
             return false;
         }
 
-        if (MessageHistory.TryGetValue(activeCharacter, out var messages))
+        if (MessageHistory.TryGetValue(_activeCharacter, out var messages))
         {
-            chat.Messages = messages;
+            _chat.Messages = messages;
             return true;
         }
 
@@ -328,13 +136,13 @@ partial class OllamaChatSession
 
     private void ClearContext()
     {
-        if (chat == null || activeCharacter == null)
+        if (_chat == null || _activeCharacter == null)
         {
             return;
         }
 
-        chat.Messages.Clear();
-        if (MessageHistory.TryGetValue(activeCharacter, out var messages))
+        _chat.Messages.Clear();
+        if (MessageHistory.TryGetValue(_activeCharacter, out var messages))
         {
             messages.Clear();
         }
@@ -345,10 +153,12 @@ partial class OllamaChatSession
     {
         try
         {
-            if (chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-            //Send message
+            var prompt = await GetFinalPromptAsync(message);
+            Console.WriteLine($"Final Prompt: {Environment.NewLine} {prompt}");
+            if (_chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+            //Send prompt
             string response = "";
-            await foreach (var answerToken in chat.SendAsync(message, activeTools))
+            await foreach (var answerToken in _chat.SendAsync(prompt, _activeTools))
             {
                 response += answerToken;
             }
@@ -364,7 +174,7 @@ partial class OllamaChatSession
             //Stream response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
             {
-                var token = new AnswerTokenInfo(!activeTools?.Any() ?? true, activeCharacter?.Name ?? "", response);
+                var token = new AnswerTokenInfo(!_activeTools?.Any() ?? true, _activeCharacter?.Name ?? "", response);
                 _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
@@ -381,15 +191,21 @@ partial class OllamaChatSession
         var models = await ollama.ListLocalModelsAsync();
         if (!models.Any(x => x.Name == selectedModel))
         {
-            Console.WriteLine($"Model {selectedModel} not found. Downloading...");
+            Console.WriteLine($"Model: \"{selectedModel}\" not found. Downloading...");
             bool completed = false;
+            int prevVal = 0;
             await foreach (var response in ollama.PullModelAsync(selectedModel))
             {
                 if (response == null) { continue; }
-                Console.WriteLine($"Downloaded {response.Percent:F1}%");
+                if (prevVal != (int)(response.Percent * 1000))
+                {
+                    Console.WriteLine($"Downloaded {response.Percent:F1}%");
+                }
+                prevVal = (int)(response.Percent * 1000);
                 completed = response.Total == response.Completed;
             }
             while (!completed) ;
+            Console.WriteLine($"Model \"{selectedModel}\" successfully downloaded.");
         }
     }
 

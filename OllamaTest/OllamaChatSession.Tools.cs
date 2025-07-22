@@ -45,12 +45,12 @@ partial class OllamaChatSession
     public static string GetMyHome()
     {
         Console.WriteLine($"{nameof(GetMyHome)} called");
-        if (Instance == null || Instance._worldInfo == null || Instance.activeCharacter == null)
+        if (Instance == null || Instance._worldInfo == null || Instance._activeCharacter == null)
         {
             return "No info available.";
         }
 
-        var biome = Instance._worldInfo.NpcBiomeInfos.Where(x => x.NpcName == Instance.activeCharacter.Name).FirstOrDefault().BiomeName;
+        var biome = Instance._worldInfo.NpcBiomeInfos.Where(x => x.NpcName == Instance._activeCharacter.Name).FirstOrDefault().BiomeName;
         if (biome == null)
         {
             return "Your home biome is unknown.";
@@ -67,15 +67,15 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(GetQuestsForPlayer)} called");
 
-        if (Instance == null || Instance.activeCharacter == null)
+        if (Instance == null || Instance._activeCharacter == null)
         {
-            Console.WriteLine($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?.activeCharacter == null}");
+            Console.WriteLine($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?._activeCharacter == null}");
             return "No quests available";
         }
 
-        if (!Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests) || string.IsNullOrWhiteSpace(quests))
+        if (!Instance.NpcAvailableQuests.TryGetValue(Instance._activeCharacter.Name, out var quests) || string.IsNullOrWhiteSpace(quests))
         {
-            Console.WriteLine($"Failed. No active quests for {Instance.activeCharacter.Name}");
+            Console.WriteLine($"Failed. No active quests for {Instance._activeCharacter.Name}");
             return "No quests available";
         }
         Console.WriteLine(quests);
@@ -90,7 +90,7 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(GetCurrentPlayerActiveQuest)} called");
 
-        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCurrentQuest.TryGetValue(Instance.activeCharacter.Name, out var quest))
+        if (Instance == null || Instance._activeCharacter == null || !Instance.NpcCurrentQuest.TryGetValue(Instance._activeCharacter.Name, out var quest))
         {
             return "No quest activated";
         }
@@ -108,12 +108,12 @@ partial class OllamaChatSession
         Console.WriteLine($"{nameof(StartPlayerQuest)} called with id: {id}");
 
 
-        if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
+        if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
             return $"Could not start quest with id: {id} Not connected to the game.";
         }
 
-        if (Instance.NpcAvailableQuests.TryGetValue(Instance.activeCharacter.Name, out var quests) && quests.Contains(id))
+        if (Instance.NpcAvailableQuests.TryGetValue(Instance._activeCharacter.Name, out var quests) && quests.Contains(id))
         {
             var response = new QuestStartedInfo(id);
             Instance._netPacketProcessor.Write(Instance._writer, response);
@@ -134,7 +134,7 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(GetCompletableJobs)} called");
 
-        if (Instance == null || Instance.activeCharacter == null || !Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks))
+        if (Instance == null || Instance._activeCharacter == null || !Instance.NpcCompletableTasks.TryGetValue(Instance._activeCharacter.Name, out var tasks))
         {
             return "No tasks available";
         }
@@ -152,12 +152,12 @@ partial class OllamaChatSession
     {
         Console.WriteLine($"{nameof(MarkJobAsComplete)} called with id: {jobId}");
 
-        if (Instance == null || Instance._unityPeer == null || Instance.activeCharacter == null)
+        if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
             return $"Could not complete job id: {jobId} Not connected to the game.";
         }
 
-        if (Instance.NpcCompletableTasks.TryGetValue(Instance.activeCharacter.Name, out var tasks) && tasks.Contains(jobId))
+        if (Instance.NpcCompletableTasks.TryGetValue(Instance._activeCharacter.Name, out var tasks) && tasks.Contains(jobId))
         {
             var response = new TaskCompletedInfo(jobId);
             Instance._netPacketProcessor.Write(Instance._writer, response);
