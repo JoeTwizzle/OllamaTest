@@ -44,15 +44,19 @@ partial class OllamaChatSession
     {
         if (_ollama == null)
         {
-            throw new InvalidOperationException("Could not query document! Ollama not loaded.");
+            throw new InvalidOperationException("Could not query documents! Ollama not loaded.");
         }
 
         if (_embeddingModel == null)
         {
-            throw new InvalidOperationException("Could not query document! No embedding model specified.");
+            throw new InvalidOperationException("Could not query documents! No embedding model specified.");
         }
 
-        var request = new EmbedRequest() { Input = [userPrompt], Model = _embeddingModel };
+        if (_activeCharacter == null)
+        {
+            throw new InvalidOperationException("Could not query documents! No active character set.");
+        }
+        var request = new EmbedRequest() { Input = [$"The player says to {_activeCharacter.Name}: {Environment.NewLine} {userPrompt}"], Model = _embeddingModel };
         var questionEmbedding = await _ollama.EmbedAsync(request);
 
         // Find best document with similarity score

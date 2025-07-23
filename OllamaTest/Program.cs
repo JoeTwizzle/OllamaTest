@@ -6,7 +6,7 @@ internal class Program
     static bool RunStandalone = false;
     static int Port = 9050;
     static readonly string ActiveModel = "qwen3:latest";
-    static readonly string EmbeddingModel = "nomic-embed-text";
+    static readonly string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
     static readonly string ConnectionKey = "eotwConnectionKey";
     static async Task Main(string[] args)
     {
