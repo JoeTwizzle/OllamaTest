@@ -76,11 +76,13 @@ partial class OllamaChatSession
 
     private void OnSaveInfoRecieved(SaveToFileInfo info)
     {
+        Console.WriteLine($"Saving info to: {info.Path}");
         Save(info.Path);
     }
 
     private void OnLoadInfoRecieved(LoadFromFileInfo info)
     {
+        Console.WriteLine($"Loading info from: {info.Path}");
         Load(info.Path);
     }
 

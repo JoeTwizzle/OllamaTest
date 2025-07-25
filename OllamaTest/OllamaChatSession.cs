@@ -180,6 +180,7 @@ partial class OllamaChatSession
         }
         MessageHistory = saveFile.MessageHistory;
         _documents = saveFile.Documents;
+        TryLoadContext();
     }
 
 
