@@ -10,11 +10,11 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 
+internal record Document(string Text, List<float[]> Embedding);
 partial class OllamaChatSession
 {
     private const float SimilarityThreshold = 0.2f; // Minimum relevance threshold
-    private readonly List<Document> _documents = [];
-    private record Document(string Text, List<float[]> Embedding);
+    private List<Document> _documents = [];
 
     public void ClearDocuments()
     {
@@ -60,6 +60,7 @@ partial class OllamaChatSession
         var questionEmbedding = await _ollama.EmbedAsync(request);
 
         // Find best document with similarity score
+        //TODO: Maybe allow more than one doc to be returned?
         var bestMatch = _documents
             .Select(doc => new
             {
@@ -68,7 +69,6 @@ partial class OllamaChatSession
             })
             .MaxBy(x => x.Similarity);
 
-        // Apply similarity threshold
         if (bestMatch == null || bestMatch.Similarity < SimilarityThreshold)
             return userPrompt;
 

@@ -6,6 +6,6 @@ using System.Threading.Tasks;
 
 namespace Backend.Messages;
 
-sealed class ClearContextInfo
+sealed class LoadContextInfo
 {
 }

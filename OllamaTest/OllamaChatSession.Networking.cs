@@ -54,6 +54,8 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeNetSerializable<SetCharacterInfo>(OnCharacterRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateActiveQuestsInfo>(OnActiveQuestInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<SaveToFileInfo>(OnSaveInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<LoadFromFileInfo>(OnLoadInfoRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
@@ -70,6 +72,16 @@ partial class OllamaChatSession
             server.PollEvents();
         }
         server.Stop();
+    }
+
+    private void OnSaveInfoRecieved(SaveToFileInfo info)
+    {
+        Save(info.Path);
+    }
+
+    private void OnLoadInfoRecieved(LoadFromFileInfo info)
+    {
+        Load(info.Path);
     }
 
     readonly Dictionary<string, string> NpcCurrentQuest = new();

@@ -1,5 +1,6 @@
 using Backend.Extensions;
 using Backend.Messages;
+using Backend.Persistance;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using OllamaSharp;
@@ -8,6 +9,7 @@ using System;
 using System.Data;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace Backend;
 
@@ -149,6 +151,37 @@ partial class OllamaChatSession
         //TODO: Make RAG unique per character
         //ClearDocuments();
     }
+
+    public void Save(string path)
+    {
+        SaveContext();
+        var dir = Path.GetDirectoryName(path);
+        if (dir != null)
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        var fileName = Path.GetFileName(path);
+        using var stream = File.Create(fileName);
+
+        var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
+
+        JsonSerializer.Serialize(stream, saveFile);
+    }
+
+    public void Load(string location)
+    {
+        using var stream = File.OpenRead(location);
+        var saveFile = JsonSerializer.Deserialize<SaveFile>(stream);
+        if (saveFile == null)
+        {
+            Console.WriteLine("Error Loading savefile. Abort.");
+            return;
+        }
+        MessageHistory = saveFile.MessageHistory;
+        _documents = saveFile.Documents;
+    }
+
 
     public async Task ChatAsync(string message)
     {
