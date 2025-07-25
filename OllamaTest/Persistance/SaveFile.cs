@@ -12,7 +12,7 @@ namespace Backend.Persistance;
 [JsonSerializable(typeof(SaveFile))]
 internal sealed partial class SaveFile
 {
-    public Dictionary<NPCCharacterInfo, List<Message>> MessageHistory { get; set; }
+    public Dictionary<string, List<Message>> MessageHistory { get; set; }
     public List<Document> Documents { get; set; }
 
 }

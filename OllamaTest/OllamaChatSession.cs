@@ -102,7 +102,7 @@ partial class OllamaChatSession
         }
     }
 
-    Dictionary<NPCCharacterInfo, List<Message>> MessageHistory = new();
+    Dictionary<string, List<Message>> MessageHistory = new();
     private void SaveContext()
     {
         if (_chat == null || _activeCharacter == null)
@@ -110,10 +110,10 @@ partial class OllamaChatSession
             return;
         }
 
-        if (!MessageHistory.TryGetValue(_activeCharacter, out var messages))
+        if (!MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
         {
             messages = new();
-            MessageHistory.Add(_activeCharacter, messages);
+            MessageHistory.Add(_activeCharacter.Name, messages);
         }
 
         messages.AddRange(_chat.Messages);
@@ -127,7 +127,7 @@ partial class OllamaChatSession
             return false;
         }
 
-        if (MessageHistory.TryGetValue(_activeCharacter, out var messages))
+        if (MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
         {
             _chat.Messages = messages;
             return true;
@@ -144,7 +144,7 @@ partial class OllamaChatSession
         }
 
         _chat.Messages.Clear();
-        if (MessageHistory.TryGetValue(_activeCharacter, out var messages))
+        if (MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
         {
             messages.Clear();
         }
@@ -154,33 +154,48 @@ partial class OllamaChatSession
 
     public void Save(string path)
     {
-        SaveContext();
-        var dir = Path.GetDirectoryName(path);
-        if (dir != null)
+        try
         {
-            Directory.CreateDirectory(dir);
+            SaveContext();
+            var dir = Path.GetDirectoryName(path);
+            if (dir != null)
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            using var stream = File.Create(path);
+
+            var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
+
+            JsonSerializer.Serialize(stream, saveFile);
         }
-
-        var fileName = Path.GetFileName(path);
-        using var stream = File.Create(fileName);
-
-        var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
-
-        JsonSerializer.Serialize(stream, saveFile);
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error Saving savefile. {e}");
+            return;
+        }
     }
 
     public void Load(string location)
     {
-        using var stream = File.OpenRead(location);
-        var saveFile = JsonSerializer.Deserialize<SaveFile>(stream);
-        if (saveFile == null)
+        try
         {
-            Console.WriteLine("Error Loading savefile. Abort.");
+            using var stream = File.OpenRead(location);
+            var saveFile = JsonSerializer.Deserialize<SaveFile>(stream);
+            if (saveFile == null)
+            {
+                Console.WriteLine("Error Loading savefile. Abort.");
+                return;
+            }
+            MessageHistory = saveFile.MessageHistory;
+            _documents = saveFile.Documents;
+            TryLoadContext();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error Loading savefile. {e}");
             return;
         }
-        MessageHistory = saveFile.MessageHistory;
-        _documents = saveFile.Documents;
-        TryLoadContext();
     }
 
 
