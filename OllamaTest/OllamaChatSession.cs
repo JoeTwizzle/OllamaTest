@@ -28,7 +28,10 @@ partial class OllamaChatSession
         }
         catch (Exception)
         {
-            Console.WriteLine("Error intializing Ollama. Ensure the Ollama background service is running!");
+            var tempCol = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("[ERROR] intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
+            Console.ForegroundColor = tempCol;
             throw;
         }
         await PullModel(_ollama, activeModel);
