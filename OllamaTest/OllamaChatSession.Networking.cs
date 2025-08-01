@@ -47,6 +47,7 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<SaveContextInfo>(OnSaveCommandRecieved);
         _netPacketProcessor.SubscribeReusable<LoadContextInfo>(OnLoadCommandRecieved);
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
+        _netPacketProcessor.SubscribeReusable<HeartBeatInfo>(OnHeartBeatRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
@@ -72,6 +73,20 @@ partial class OllamaChatSession
             server.PollEvents();
         }
         server.Stop();
+    }
+
+    private void OnHeartBeatRecieved(HeartBeatInfo info)
+    {
+        if (_unityPeer == null)
+        {
+            Console.WriteLine("Dead");
+            return;
+        }
+        Console.WriteLine("Alive");
+        _netPacketProcessor.Write(_writer, new HeartBeatInfo());
+
+        _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+        _writer.Reset();
     }
 
     private void OnSaveInfoRecieved(SaveToFileInfo info)
@@ -148,7 +163,7 @@ partial class OllamaChatSession
         var task = GenerateDescription(info);
         task.Wait();
         var answer = task.Result;
-        var response = new GeneratedResponseInfo(answer);
+        var response = new GeneratedResponseInfo(answer, info.RawDescription);
         if (_unityPeer != null)
         {
             _netPacketProcessor.Write(_writer, response);
