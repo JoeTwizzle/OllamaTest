@@ -151,7 +151,7 @@ partial class OllamaChatSession
         {
             messages.Clear();
         }
-        RemoveDocuments(_activeCharacter.Name);
+        
     }
 
     public void Save(string path)
@@ -223,7 +223,7 @@ partial class OllamaChatSession
             response = response.Trim('\n', '\r', ' ');
             Console.WriteLine(response);
 
-            //Stream response
+            //send response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
             {
                 var token = new AnswerTokenInfo(!_activeTools?.Any() ?? true, _activeCharacter?.Name ?? "", response);
@@ -232,9 +232,9 @@ partial class OllamaChatSession
                 _writer.Reset();
             }
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            Console.WriteLine("Error in chatAsync");
+            Console.WriteLine($"Error in chatAsync {Environment.NewLine} {e}");
         }
     }
 

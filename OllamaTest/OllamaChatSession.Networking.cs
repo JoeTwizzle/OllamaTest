@@ -65,6 +65,8 @@ partial class OllamaChatSession
         listener.PeerDisconnectedEvent += (peer, info) =>
         {
             Console.WriteLine("Unity disconnected!");
+            ClearDocuments();
+            ClearContext();
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
