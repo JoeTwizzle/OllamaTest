@@ -169,11 +169,11 @@ partial class OllamaChatSession
 
             var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
 
-            JsonSerializer.Serialize(stream, saveFile);
+            JsonSerializer.Serialize(stream, saveFile, SourceGenContext.Default.SaveFile);
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Error Saving savefile. {e}");
+            Console.WriteLine($"Error Saving savefile. {Environment.NewLine} {e}");
             return;
         }
     }
@@ -183,7 +183,7 @@ partial class OllamaChatSession
         try
         {
             using var stream = File.OpenRead(location);
-            var saveFile = JsonSerializer.Deserialize<SaveFile>(stream);
+            SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
             if (saveFile == null)
             {
                 Console.WriteLine("Error Loading savefile. Abort.");
