@@ -117,7 +117,7 @@ partial class OllamaChatSession
             Remember to call {nameof(StartPlayerQuest)} when the player has said they want to help with a specific quest!
             """;
             Console.WriteLine($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            await AddDocument(input);
+            await AddDocument(info.Name, input);
         }
         catch
         {
@@ -133,7 +133,7 @@ partial class OllamaChatSession
         {
             string input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
             Console.WriteLine($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            await AddDocument(input);
+            await AddDocument(info.Name,input);
         }
         catch
         {
@@ -149,7 +149,7 @@ partial class OllamaChatSession
         {
             string input = $"The tasks, that {info.Name} can mark as completed for the current active quest, are:\n{info.Quests}";
             Console.WriteLine($"Added UpdateTasksInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            await AddDocument(input);
+            await AddDocument(info.Name,input);
         }
         catch
         {

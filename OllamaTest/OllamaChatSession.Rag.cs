@@ -4,6 +4,7 @@ using OllamaSharp.Models.Chat;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Net.Mime.MediaTypeNames;
@@ -14,14 +15,19 @@ internal record Document(string Text, List<float[]> Embedding);
 partial class OllamaChatSession
 {
     private const float SimilarityThreshold = 0.2f; // Minimum relevance threshold
-    private List<Document> _documents = [];
+    private Dictionary<string, List<Document>> _documents = [];
 
     public void ClearDocuments()
     {
         _documents.Clear();
     }
 
-    public async Task AddDocument(string text)
+    public void RemoveDocuments(string key)
+    {
+        _documents.Remove(key);
+    }
+
+    public async Task AddDocument(string key, string text)
     {
         if (_ollama == null)
         {
@@ -37,10 +43,15 @@ partial class OllamaChatSession
 
         var request = new EmbedRequest() { Input = [text], Model = _embeddingModel };
         var embedding = await _ollama.EmbedAsync(request);
-        _documents.Add(new Document(text, embedding.Embeddings));
+        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, key, out var exists);
+        if (!exists)
+        {
+            list = new();
+        }
+        list!.Add(new Document(text, embedding.Embeddings));
     }
 
-    public async Task<string> GetFinalPromptAsync(string userPrompt)
+    public async Task<string> GetFinalPromptAsync(string key, string userPrompt)
     {
         if (_ollama == null)
         {
@@ -61,19 +72,19 @@ partial class OllamaChatSession
 
         // Find best document with similarity score
         //TODO: Maybe allow more than one doc to be returned?
-        var bestMatch = _documents
-            .Select(doc => new
+        if (_documents.TryGetValue(key, out var val))
+        {
+            var bestMatch = val.Select(doc => new
             {
                 Document = doc,
                 Similarity = CosineSimilarity(questionEmbedding.Embeddings, doc.Embedding)
             })
             .MaxBy(x => x.Similarity);
 
-        if (bestMatch == null || bestMatch.Similarity < SimilarityThreshold)
-            return userPrompt;
+            if (bestMatch == null || bestMatch.Similarity < SimilarityThreshold)
+                return userPrompt;
 
-        // Build RAG prompt
-        var prompt = $"""
+            var prompt = $"""
             You may use the following context to aid your answer to a question. 
             If you don't know the answer, just say so OR ask the user to specify what they mean.
             
@@ -84,7 +95,9 @@ partial class OllamaChatSession
             {userPrompt}
             """;
 
-        return prompt;
+            return prompt;
+        }
+        return userPrompt;
     }
 
     private static float CosineSimilarity(List<float[]> vec1, List<float[]> vec2)

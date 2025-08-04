@@ -151,8 +151,7 @@ partial class OllamaChatSession
         {
             messages.Clear();
         }
-        //TODO: Make RAG unique per character
-        //ClearDocuments();
+        RemoveDocuments(_activeCharacter.Name);
     }
 
     public void Save(string path)
@@ -206,9 +205,9 @@ partial class OllamaChatSession
     {
         try
         {
-            var prompt = await GetFinalPromptAsync(message);
+            if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+            var prompt = await GetFinalPromptAsync(_activeCharacter.Name, message);
             Console.WriteLine($"Final Prompt: {Environment.NewLine} {prompt}");
-            if (_chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
             //Send prompt
             string response = "";
             await foreach (var answerToken in _chat.SendAsync(prompt, _activeTools))
