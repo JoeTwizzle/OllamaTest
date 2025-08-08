@@ -2,13 +2,9 @@ using Backend.Extensions;
 using Backend.Messages;
 using Backend.Persistance;
 using LiteNetLib;
-using LiteNetLib.Utils;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
-using System;
 using System.Data;
-using System.Net;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Backend;
@@ -20,18 +16,15 @@ partial class OllamaChatSession
     IEnumerable<Tool>? _activeTools;
     NPCCharacterInfo? _activeCharacter;
     string? _embeddingModel;
-    public async Task InitOllama(string activeModel, string? embeddingModel = null)
+    public async Task InitOllama(string url, string activeModel, string? embeddingModel = null)
     {
         try
         {
-            _ollama = await ConnectAsync();
+            _ollama = await ConnectAsync(url);
         }
         catch (Exception)
         {
-            var tempCol = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("[ERROR] intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
-            Console.ForegroundColor = tempCol;
+            LogError("[ERROR] intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
             throw;
         }
         await PullModel(_ollama, activeModel);
@@ -42,7 +35,7 @@ partial class OllamaChatSession
         _embeddingModel = embeddingModel;
         _ollama.SelectedModel = activeModel;
 
-        Console.WriteLine("System initialized!");
+        Log("System initialized!", ConsoleColor.Green);
         Console.WriteLine();
     }
 
@@ -61,14 +54,15 @@ partial class OllamaChatSession
                 Temperature = 0.7f,
             }
         };
+
         _activeTools = SelectTools(characterInfo.AvailableTools);
         if (!_activeTools.Any())
         {
-            Console.WriteLine("NO TOOLS ACTIVE");
+            Log("NO TOOLS ACTIVE", ConsoleColor.Blue);
         }
         else
         {
-            Console.WriteLine("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)));
+            Log("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)), ConsoleColor.Blue);
         }
         SaveContext();
         _activeCharacter = characterInfo;
@@ -151,7 +145,7 @@ partial class OllamaChatSession
         {
             messages.Clear();
         }
-        
+
     }
 
     public void Save(string path)
@@ -173,7 +167,7 @@ partial class OllamaChatSession
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Error Saving savefile. {Environment.NewLine} {e}");
+            LogError($"Error Saving savefile. {Environment.NewLine} {e}");
             return;
         }
     }
@@ -186,7 +180,7 @@ partial class OllamaChatSession
             SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
             if (saveFile == null)
             {
-                Console.WriteLine("Error Loading savefile. Abort.");
+                LogError("Error Loading savefile. Abort.");
                 return;
             }
             MessageHistory = saveFile.MessageHistory;
@@ -195,38 +189,58 @@ partial class OllamaChatSession
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Error Loading savefile. {e}");
+            LogError($"Error Loading savefile. {e}");
             return;
         }
     }
+    const string InstructorName = "Instructor";
+    const string InstructorPrompt = """
+        You are an AI tasked with evaluating messages for relevancy and calling functions based on the content of said messages.
+        Here are the tasks you MUST fulfill:
+        1. Analyze the conversation for one of the topics listed in:
+        GetQuestsForPlayer,
+        GetCurrentPlayerActiveQuest,
+        GetCompletableJobs,
 
+        2. Call one of the following functions when appropriate
+        StartPlayerQuest
+        MarkJobAsComplete,
 
+        It is of utmost importance that you preform this job with urgency and care.
+        Do not talk. Simply concentrate on your task. Only ever call a function ONCE!
+        """;
     public async Task ChatAsync(string message)
     {
         try
         {
             if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-            var prompt = await GetFinalPromptAsync(_activeCharacter.Name, message);
-            Console.WriteLine($"Final Prompt: {Environment.NewLine} {prompt}");
-            //Send prompt
-            string response = "";
-            await foreach (var answerToken in _chat.SendAsync(prompt, _activeTools))
-            {
-                response += answerToken;
-            }
-            int start = response.IndexOf("<think>");
-            int end = response.IndexOf("</think>") + "</think>".Length;
-            if (start != -1 && end != -1)
-            {
-                response = response.Remove(start, end - start);
-            }
-            response = response.Trim('\n', '\r', ' ');
-            Console.WriteLine(response);
+            string response = await GetAIMessageAsync(message, Enumerable.Empty<object>());
+            Console.WriteLine();
 
+            Log($"{_activeCharacter.Name}: {response}", ConsoleColor.Gray);
+            var tempCharacter = _activeCharacter;
+            Console.WriteLine();
+
+            LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, tempCharacter.AvailableTools, []), true);
+            string prompt = $"""
+            Evaluate the following set of messages:
+            User:
+            {message}
+
+            {tempCharacter.Name}:
+            {response}
+            """;
+            Console.WriteLine();
+            //Hack to make quests related to this character visible for the instructor
+            Instance!._activeCharacter!.Name = tempCharacter.Name;
+            string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
+            Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow);
+
+            LoadCharacter(tempCharacter, false);
             //send response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
             {
-                var token = new AnswerTokenInfo(!_activeTools?.Any() ?? true, _activeCharacter?.Name ?? "", response);
+                var token = new AnswerTokenInfo(false, _activeCharacter?.Name ?? "", response);
                 _netPacketProcessor.WriteNetSerializable(_writer, ref token);
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
@@ -234,8 +248,29 @@ partial class OllamaChatSession
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Error in chatAsync {Environment.NewLine} {e}");
+            LogError($"Error in chatAsync! {Environment.NewLine} {e}");
         }
+    }
+
+    private async Task<string> GetAIMessageAsync(string message, IEnumerable<object> tools)
+    {
+        if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+        var prompt = await GetFinalPromptAsync(_activeCharacter.Name, message);
+        Log($"Final Prompt: {Environment.NewLine} {prompt}", ConsoleColor.DarkGray);
+        //Send prompt
+        string response = "";
+        await foreach (var answerToken in _chat.SendAsync(prompt, tools))
+        {
+            response += answerToken;
+        }
+        int start = response.IndexOf("<think>");
+        int end = response.IndexOf("</think>") + "</think>".Length;
+        if (start != -1 && end != -1)
+        {
+            response = response.Remove(start, end - start);
+        }
+        response = response.Trim('\n', '\r', ' ');
+        return response;
     }
 
     private static async Task PullModel(OllamaApiClient ollama, string selectedModel)
@@ -243,45 +278,52 @@ partial class OllamaChatSession
         var models = await ollama.ListLocalModelsAsync();
         if (!models.Any(x => x.Name == selectedModel))
         {
-            Console.WriteLine($"Model: \"{selectedModel}\" not found. Downloading...");
+            Log($"Model: \"{selectedModel}\" not found. Downloading...", ConsoleColor.Gray);
             bool completed = false;
             int prevVal = 0;
             await foreach (var response in ollama.PullModelAsync(selectedModel))
             {
                 if (response == null) { continue; }
-                if (prevVal != (int)(response.Percent * 1000))
+                if (prevVal != (int)(response.Percent * 100))
                 {
                     Console.WriteLine($"Downloaded {response.Percent:F1}%");
                 }
-                prevVal = (int)(response.Percent * 1000);
+                prevVal = (int)(response.Percent * 100);
                 completed = response.Total == response.Completed;
             }
             while (!completed) ;
-            Console.WriteLine($"Model \"{selectedModel}\" successfully downloaded.");
+            Log($"Model \"{selectedModel}\" successfully downloaded.", ConsoleColor.Green);
         }
     }
 
-    private static async Task<OllamaApiClient> ConnectAsync()
+    private static async Task<OllamaApiClient> ConnectAsync(string url)
     {
         OllamaApiClient? ollama = null;
         var connected = false;
         do
         {
-            var url = "http://127.0.0.1:11434/";
             var uri = new Uri(url);
-            Console.WriteLine($"Connecting to {uri} ...");
+            Log($"Connecting to Ollama at: {uri} ...", ConsoleColor.Gray);
             try
             {
                 ollama = new OllamaApiClient(url);
                 connected = await ollama.IsRunningAsync();
-                Console.WriteLine($"Connected status: {connected}");
+                Log($"Connected status: {connected}", ConsoleColor.Blue);
             }
             catch (Exception ex)
             {
                 ollama?.Dispose();
 
-                Console.WriteLine(ex.ToString());
+                string errorMessage = $"""
+                    Connection failed! Please make sure Ollama is running at the url specified!
+                    Error log written to: 
+                    {Path.Combine(Environment.CurrentDirectory, "ErrorLog.txt")}
+                    """;
+
+                LogError(errorMessage);
+                File.WriteAllText("ErrorLog.txt", ex.ToString());
                 Console.WriteLine();
+                Log("Retrying connection...", ConsoleColor.Gray);
             }
         } while (!connected);
 

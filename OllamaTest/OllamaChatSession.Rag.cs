@@ -1,13 +1,6 @@
-using Microsoft.Extensions.AI;
 using OllamaSharp.Models;
-using OllamaSharp.Models.Chat;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 
@@ -31,13 +24,13 @@ partial class OllamaChatSession
     {
         if (_ollama == null)
         {
-            Console.WriteLine("Could not add document! Ollama not loaded.");
+            LogError("Could not add document! Ollama not loaded.");
             return;
         }
 
         if (_embeddingModel == null)
         {
-            Console.WriteLine("Could not add document! No embedding model specified.");
+            LogError("Could not add document! No embedding model specified.");
             return;
         }
 

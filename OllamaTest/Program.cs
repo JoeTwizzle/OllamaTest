@@ -1,32 +1,56 @@
+global using static Backend.Utils;
 using Backend.Messages;
 namespace Backend;
 
 internal class Program
 {
-    static bool RunStandalone = false;
-    static int Port = 9050;
-    static readonly string ActiveModel = "qwen3:latest";
-    static readonly string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
-    static readonly string ConnectionKey = "eotwConnectionKey";
+    const int Port = 9050;
+    const string ActiveModel = "qwen3:latest";
+    const string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
+    const string ConnectionKey = "eotwConnectionKey";
+    const string Url = "http://127.0.0.1:11434/";
+    const string HelpMessage = "You may specify the game port via the argument 1 and the Ollama url via argument 2. For local mode specify \"-l\"";
+
     static async Task Main(string[] args)
     {
-        // If the application is started with an argument check if it is a valid port and switch to networked mode.
-        if (args.Length == 1 && int.TryParse(args[0], out Port))
+        bool runStandAlone = false;
+        string url = Url;
+        int port = Port;
+        if (args.Length == 0)
         {
-            RunStandalone = false;
+            Log(HelpMessage, ConsoleColor.White);
         }
-
+        // If the application is started with an argument check if it is a valid port and switch to networked mode.
+        else if (args.Length == 1 && int.TryParse(args[0], out port))
+        {
+            runStandAlone = false;
+        }
+        else if (args.Length == 1 && args[0].Trim() == "-l")
+        {
+            runStandAlone = true;
+        }
+        else if (args.Length == 2 && int.TryParse(args[0], out port))
+        {
+            runStandAlone = false;
+            url = args[1];
+        }
+        else
+        {
+            LogError("Incorrect arguments specified! Cannot start.");
+            Log(HelpMessage, ConsoleColor.White);
+            return;
+        }
         OllamaChatSession session = new();
-        await session.InitOllama(ActiveModel, EmbeddingModel);
+        await session.InitOllama(url, ActiveModel, EmbeddingModel);
 
         //Local chat only. No server communication.
-        if (RunStandalone)
+        if (runStandAlone)
         {
             await RunLocal(session);
         }
         else
         {
-            session.RunServer(Port, ConnectionKey);
+            session.RunServer(port, ConnectionKey);
         }
     }
 

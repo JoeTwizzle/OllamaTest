@@ -1,13 +1,8 @@
 using Backend.Messages;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Backend;
 partial class OllamaChatSession
@@ -135,7 +130,7 @@ partial class OllamaChatSession
         {
             string input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
             Console.WriteLine($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            await AddDocument(info.Name,input);
+            await AddDocument(info.Name, input);
         }
         catch
         {
@@ -151,7 +146,7 @@ partial class OllamaChatSession
         {
             string input = $"The tasks, that {info.Name} can mark as completed for the current active quest, are:\n{info.Quests}";
             Console.WriteLine($"Added UpdateTasksInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            await AddDocument(info.Name,input);
+            await AddDocument(info.Name, input);
         }
         catch
         {

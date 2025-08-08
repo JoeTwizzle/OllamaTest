@@ -22,7 +22,7 @@ for %%R in (%RUNTIMES%) do (
         --self-contained true ^
         /p:PublishSingleFile=true ^
         /p:IncludeNativeLibrariesForSelfExtract=true ^
-        --output publish\%%R
+        --output bin\publish\%%R
 
     IF %ERRORLEVEL% NEQ 0 (
         echo ERROR: Failed to publish for %%R
@@ -35,7 +35,7 @@ echo ========================================
 echo Publishing complete!
 echo Output folders:
 for %%R in (%RUNTIMES%) do (
-    echo   publish\%%R
+    echo   bin\publish\%%R
 )
 echo ========================================
 
