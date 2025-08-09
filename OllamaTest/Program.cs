@@ -5,7 +5,7 @@ namespace Backend;
 internal class Program
 {
     const int Port = 9050;
-    const string ActiveModel = "qwen3:latest";
+    const string ActiveModel = "hf.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF:Q6_K";
     const string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
     const string ConnectionKey = "eotwConnectionKey";
     const string Url = "http://127.0.0.1:11434/";
@@ -18,7 +18,7 @@ internal class Program
         int port = Port;
         if (args.Length == 0)
         {
-            Log(HelpMessage, ConsoleColor.White);
+            Log(HelpMessage, ConsoleColor.White, Microsoft.Extensions.Logging.LogLevel.Critical);
         }
         // If the application is started with an argument check if it is a valid port and switch to networked mode.
         else if (args.Length == 1 && int.TryParse(args[0], out port))

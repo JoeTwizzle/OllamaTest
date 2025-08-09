@@ -22,7 +22,7 @@ partial class OllamaChatSession
         NetManager server = new(listener);
         if (!server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port))
         {
-            Console.WriteLine("Error starting server!");
+            LogError("Error starting server!");
             return;
         }
 
@@ -55,11 +55,11 @@ partial class OllamaChatSession
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
-            Console.WriteLine("Unity connected!");
+            LogEvent("Unity connected!");
         };
         listener.PeerDisconnectedEvent += (peer, info) =>
         {
-            Console.WriteLine("Unity disconnected!");
+            LogEvent("Unity disconnected!");
             ClearDocuments();
             ClearContext();
         };
@@ -76,10 +76,10 @@ partial class OllamaChatSession
     {
         if (_unityPeer == null)
         {
-            Console.WriteLine("Dead");
+            LogError("Dead");
             return;
         }
-        Console.WriteLine("Alive");
+        LogInfo("Alive");
         _netPacketProcessor.Write(_writer, new HeartBeatInfo());
 
         _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
@@ -88,13 +88,13 @@ partial class OllamaChatSession
 
     private void OnSaveInfoRecieved(SaveToFileInfo info)
     {
-        Console.WriteLine($"Saving info to: {info.Path}");
+        LogEvent($"Saving info to: {info.Path}");
         Save(info.Path);
     }
 
     private void OnLoadInfoRecieved(LoadFromFileInfo info)
     {
-        Console.WriteLine($"Loading info from: {info.Path}");
+        LogEvent($"Loading info from: {info.Path}");
         Load(info.Path);
     }
 
@@ -111,14 +111,13 @@ partial class OllamaChatSession
             string input = $"""
             The things (quests) {info.Name} wants the player to help with are:           
             {info.Quests}
-            Remember to call {nameof(StartPlayerQuest)} when the player has said they want to help with a specific quest!
             """;
-            Console.WriteLine($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+            LogEvent($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
             await AddDocument(info.Name, input);
         }
         catch
         {
-            Console.WriteLine("Could not add UpdateQuestsInfo to RAG");
+            LogError("Could not add UpdateQuestsInfo to RAG");
         }
     }
 
@@ -129,12 +128,12 @@ partial class OllamaChatSession
         try
         {
             string input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
-            Console.WriteLine($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+            LogEvent($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
             await AddDocument(info.Name, input);
         }
         catch
         {
-            Console.WriteLine("Could not add UpdateActiveQuestsInfo to RAG");
+            LogError("Could not add UpdateActiveQuestsInfo to RAG");
         }
     }
 
@@ -145,18 +144,18 @@ partial class OllamaChatSession
         try
         {
             string input = $"The tasks, that {info.Name} can mark as completed for the current active quest, are:\n{info.Quests}";
-            Console.WriteLine($"Added UpdateTasksInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+            LogEvent($"Added UpdateTasksInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
             await AddDocument(info.Name, input);
         }
         catch
         {
-            Console.WriteLine("Could not add UpdateTasksInfo to RAG");
+            LogError("Could not add UpdateTasksInfo to RAG");
         }
     }
 
     private void OnDescriptionInfoRecieved(GeneratedDescriptionInfo info)
     {
-        Console.WriteLine(info.RawDescription);
+        LogInfo(info.RawDescription);
         var task = GenerateDescription(info);
         task.Wait();
         var answer = task.Result;
@@ -205,8 +204,8 @@ partial class OllamaChatSession
 
     private void OnCharacterRecieved(SetCharacterInfo characterInfo)
     {
-        Console.WriteLine("Loading character...");
-        Console.WriteLine(characterInfo);
+        LogEvent("Loading character...");
+        LogInfo(characterInfo.ToString());
         LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
         if (_unityPeer != null)
         {

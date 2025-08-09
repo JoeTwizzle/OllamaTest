@@ -6,6 +6,7 @@ using OllamaSharp;
 using OllamaSharp.Models.Chat;
 using System.Data;
 using System.Text.Json;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Backend;
 
@@ -24,14 +25,23 @@ partial class OllamaChatSession
         }
         catch (Exception)
         {
-            LogError("[ERROR] intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
+            LogError("[ERROR] Intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
             throw;
         }
-        await PullModel(_ollama, activeModel);
-        if (embeddingModel != null)
+        try
         {
-            await PullModel(_ollama, embeddingModel);
+            await PullModel(_ollama, activeModel);
+            if (embeddingModel != null)
+            {
+                await PullModel(_ollama, embeddingModel);
+            }
         }
+        catch (Exception)
+        {
+            LogError("[ERROR] Could not find model at given URL");
+            throw;
+        }
+        
         _embeddingModel = embeddingModel;
         _ollama.SelectedModel = activeModel;
 
@@ -58,11 +68,11 @@ partial class OllamaChatSession
         _activeTools = SelectTools(characterInfo.AvailableTools);
         if (!_activeTools.Any())
         {
-            Log("NO TOOLS ACTIVE", ConsoleColor.Blue);
+            LogEvent("NO TOOLS ACTIVE");
         }
         else
         {
-            Log("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)), ConsoleColor.Blue);
+            LogEvent("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)));
         }
         SaveContext();
         _activeCharacter = characterInfo;
@@ -234,7 +244,7 @@ partial class OllamaChatSession
             //Hack to make quests related to this character visible for the instructor
             Instance!._activeCharacter!.Name = tempCharacter.Name;
             string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
-            Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow);
+            Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow, LogLevel.Information);
 
             LoadCharacter(tempCharacter, false);
             //send response
@@ -286,7 +296,7 @@ partial class OllamaChatSession
                 if (response == null) { continue; }
                 if (prevVal != (int)(response.Percent * 100))
                 {
-                    Console.WriteLine($"Downloaded {response.Percent:F1}%");
+                    LogInfo($"Downloaded {response.Percent:F2}%");
                 }
                 prevVal = (int)(response.Percent * 100);
                 completed = response.Total == response.Completed;
@@ -303,12 +313,12 @@ partial class OllamaChatSession
         do
         {
             var uri = new Uri(url);
-            Log($"Connecting to Ollama at: {uri} ...", ConsoleColor.Gray);
+            LogInfo($"Connecting to Ollama at: {uri} ...");
             try
             {
                 ollama = new OllamaApiClient(url);
                 connected = await ollama.IsRunningAsync();
-                Log($"Connected status: {connected}", ConsoleColor.Blue);
+                LogEvent($"Connected status: {connected}");
             }
             catch (Exception ex)
             {
@@ -323,7 +333,7 @@ partial class OllamaChatSession
                 LogError(errorMessage);
                 File.WriteAllText("ErrorLog.txt", ex.ToString());
                 Console.WriteLine();
-                Log("Retrying connection...", ConsoleColor.Gray);
+                LogInfo("Retrying connection...");
             }
         } while (!connected);
 
