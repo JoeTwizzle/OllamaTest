@@ -5,7 +5,7 @@ internal static class Utils
 {
     public static LogLevel LogLevel = LogLevel.Debug;
 
-    public static void Log(string? message, ConsoleColor color, LogLevel logLevel = LogLevel.Trace)
+    public static void Log(string? message, ConsoleColor color, LogLevel logLevel = LogLevel.Debug)
     {
         if (logLevel < LogLevel) return;
 

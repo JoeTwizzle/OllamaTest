@@ -44,6 +44,7 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
         _netPacketProcessor.SubscribeReusable<HeartBeatInfo>(OnHeartBeatRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<NPCItemChangeInfo>(OnNPCItemChanged);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateTasksInfo>(OnTaskInfoRecieved);
@@ -68,8 +69,40 @@ partial class OllamaChatSession
         while (ShouldRun)
         {
             server.PollEvents();
+            Thread.Sleep(1);
         }
         server.Stop();
+    }
+
+    private async void OnNPCItemChanged(NPCItemChangeInfo info)
+    {
+        try
+        {
+            var doc = await GetEmbeddedInventoryAsync(info.NPCName);
+
+            if (info.Added)
+            {
+                AddItem(info.NPCName, info.ItemName);
+            }
+            else
+            {
+                RemoveItem(info.NPCName, info.ItemName);
+            }
+            if (doc != null)
+            {
+                RemoveDocument(info.NPCName, doc.Text);
+            }
+
+            var newdoc = await GetEmbeddedInventoryAsync(info.NPCName);
+            if (newdoc != null)
+            {
+                AddDocument(info.NPCName, newdoc);
+            }
+        }
+        catch (Exception e)
+        {
+            LogError(e.ToString());
+        }
     }
 
     private void OnHeartBeatRecieved(HeartBeatInfo info)

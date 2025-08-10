@@ -15,12 +15,12 @@ partial class OllamaChatSession
         _documents.Clear();
     }
 
-    public void RemoveDocuments(string key)
+    public void RemoveDocuments(string npcName)
     {
-        _documents.Remove(key);
+        _documents.Remove(npcName);
     }
 
-    public async Task AddDocument(string key, string text)
+    public async Task AddDocument(string npcName, string text)
     {
         if (_ollama == null)
         {
@@ -36,7 +36,7 @@ partial class OllamaChatSession
 
         var request = new EmbedRequest() { Input = [text], Model = _embeddingModel };
         var embedding = await _ollama.EmbedAsync(request);
-        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, key, out var exists);
+        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, npcName, out var exists);
         if (!exists)
         {
             list = new();
@@ -44,7 +44,30 @@ partial class OllamaChatSession
         list!.Add(new Document(text, embedding.Embeddings));
     }
 
-    public async Task<string> GetFinalPromptAsync(string key, string userPrompt)
+    public void AddDocument(string npcName, Document document)
+    {
+        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, npcName, out var exists);
+        if (!exists)
+        {
+            list = new();
+        }
+        list!.Add(document);
+    }
+
+    public void RemoveDocument(string npcName, string text)
+    {
+        if (_documents.TryGetValue(npcName, out var list))
+        {
+            var doc = list.Where(x => x.Text == text).FirstOrDefault();
+            if (doc == null)
+            {
+                return;
+            }
+            list.Remove(doc);
+        }
+    }
+
+    public async Task<string> GetFinalPromptAsync(string npcName, string userPrompt)
     {
         if (_ollama == null)
         {
@@ -65,7 +88,7 @@ partial class OllamaChatSession
 
         // Find best document with similarity score
         //TODO: Maybe allow more than one doc to be returned?
-        if (_documents.TryGetValue(key, out var val))
+        if (_documents.TryGetValue(npcName, out var val))
         {
             var bestMatch = val.Select(doc => new
             {
