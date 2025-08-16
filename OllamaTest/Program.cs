@@ -18,7 +18,7 @@ internal class Program
         int port = Port;
         if (args.Length == 0)
         {
-            Log(HelpMessage, ConsoleColor.White, Microsoft.Extensions.Logging.LogLevel.Critical);
+            Log(HelpMessage, ConsoleColor.White, LogLevel.Critical);
         }
         // If the application is started with an argument check if it is a valid port and switch to networked mode.
         else if (args.Length == 1 && int.TryParse(args[0], out port))

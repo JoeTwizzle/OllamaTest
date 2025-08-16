@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 
 namespace Backend;
 internal static class Utils
@@ -29,4 +28,13 @@ internal static class Utils
     {
         Log(message, ConsoleColor.Red, LogLevel.Error);
     }
+}
+
+public enum LogLevel
+{
+    Trace,
+    Debug,
+    Information,
+    Error,
+    Critical,
 }

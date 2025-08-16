@@ -6,7 +6,7 @@ using OllamaSharp;
 using OllamaSharp.Models.Chat;
 using System.Data;
 using System.Text.Json;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+using System.Text.RegularExpressions;
 
 namespace Backend;
 
@@ -41,7 +41,7 @@ partial class OllamaChatSession
             LogError("[ERROR] Could not find model at given URL");
             throw;
         }
-        
+
         _embeddingModel = embeddingModel;
         _ollama.SelectedModel = activeModel;
 
@@ -227,10 +227,10 @@ partial class OllamaChatSession
             string response = await GetAIMessageAsync(message, Enumerable.Empty<object>());
             Console.WriteLine();
 
+            response = StripNonLatin().Replace(response, "");
             Log($"{_activeCharacter.Name}: {response}", ConsoleColor.Gray);
             var tempCharacter = _activeCharacter;
             Console.WriteLine();
-
             LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, tempCharacter.AvailableTools, []), true);
             string prompt = $"""
             Evaluate the following set of messages:
@@ -343,4 +343,7 @@ partial class OllamaChatSession
         }
         return ollama;
     }
+
+    [GeneratedRegex(@"[^\p{IsBasicLatin}\p{IsLatin-1Supplement}\p{IsLatinExtended-A}\p{IsLatinExtended-B}\p{P}\p{Zs}]")]
+    private static partial Regex StripNonLatin();
 }
