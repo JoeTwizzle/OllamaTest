@@ -235,7 +235,7 @@ partial class OllamaChatSession
     {
         LogEvent("Loading character...");
         LogInfo(characterInfo.ToString());
-        using var _ = LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
+        LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload).Wait();
         if (_unityPeer != null)
         {
             var info = new AcknowledgeInfo();
