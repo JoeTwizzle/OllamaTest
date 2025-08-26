@@ -9,31 +9,23 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
-    readonly Dictionary<string, Dictionary<string, int>> _itemDict = [];
-    bool _inventoryDirty = true;
     public void AddItem(string npc, string item)
     {
-        ref var items = ref CollectionsMarshal.GetValueRefOrAddDefault(_itemDict, npc, out var exists);
-        if (!exists)
-        {
-            items = [];
-        }
-        ref var itemStack = ref CollectionsMarshal.GetValueRefOrAddDefault(items!, item, out exists);
+        var state = GetNpcState(npc);
+
+        ref var itemStack = ref CollectionsMarshal.GetValueRefOrAddDefault(state.InventoryState, item, out var exists);
         if (!exists)
         {
             itemStack = 0;
         }
         itemStack++;
-        _inventoryDirty = true;
     }
 
     public void RemoveItem(string npc, string item)
     {
-        if (!_itemDict.TryGetValue(npc, out var items))
-        {
-            return;
-        }
-        ref var itemStack = ref CollectionsMarshal.GetValueRefOrNullRef(items, item);
+        var state = GetNpcState(npc);
+
+        ref var itemStack = ref CollectionsMarshal.GetValueRefOrNullRef(state.InventoryState, item);
         if (Unsafe.IsNullRef(ref itemStack))
         {
             return;
@@ -41,9 +33,8 @@ partial class OllamaChatSession
         itemStack--;
         if (itemStack == 0)
         {
-            items.Remove(item);
+            state.InventoryState.Remove(item);
         }
-        _inventoryDirty = true;
     }
 
     public async Task<Document?> GetEmbeddedInventoryAsync(string npcName)
@@ -60,11 +51,12 @@ partial class OllamaChatSession
             return null;
         }
         string text;
-        if (_itemDict.TryGetValue(npcName, out var items))
+        var state = GetNpcState(npcName);
+        if (state.InventoryState.Count > 0)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.AppendLine("You have the following items in your inventory:");
-            foreach (var item in items)
+            foreach (var item in state.InventoryState)
             {
                 //E.g.: Mushroom (x10)
                 sb.AppendLine($"{item.Key} (x{item.Value})");

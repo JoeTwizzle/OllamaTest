@@ -4,7 +4,9 @@ using Backend.Persistance;
 using LiteNetLib;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
+using System;
 using System.Data;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -12,11 +14,13 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
-    OllamaApiClient? _ollama;
-    Chat? _chat;
-    IEnumerable<Tool>? _activeTools;
-    NPCCharacterInfo? _activeCharacter;
-    string? _embeddingModel;
+    private OllamaApiClient? _ollama;
+    private Chat? _chat;
+    private IEnumerable<Tool>? _activeTools;
+    private NPCCharacterInfo? _activeCharacter;
+    private string? _embeddingModel;
+    private readonly Dictionary<string, NpcState> _npcStates = [];
+
     public async Task InitOllama(string url, string activeModel, string? embeddingModel = null)
     {
         try
@@ -49,19 +53,63 @@ partial class OllamaChatSession
         Console.WriteLine();
     }
 
-    public void LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
+    private NpcState GetOrAddNpcState(string name)
+    {
+        ref var state = ref CollectionsMarshal.GetValueRefOrAddDefault(_npcStates, name, out var exists);
+        if (!exists)
+        {
+            state = new();
+        }
+        return state!;
+    }
+
+    private NpcState GetNpcState(string name)
+    {
+        var state = _npcStates.GetValueOrDefault(name);
+
+        if (state == null)
+        {
+            LogError($"State was not set for Npc {name}");
+            return GetOrAddNpcState(name);
+        }
+        return state;
+    }
+
+    private NpcState? GetNpcStateOrNull(string name)
+    {
+        return _npcStates.GetValueOrDefault(name);
+    }
+
+    private NpcState GetActiveNpcState()
+    {
+        return _npcStates.GetValueOrDefault(_activeCharacter!.Name)!;
+    }
+
+    private void RemoveNpcState(string name)
+    {
+        _npcStates.Remove(name);
+    }
+
+    private void ClearNpcStates()
+    {
+        _npcStates.Clear();
+    }
+
+    public async Task LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
         //TODO: structured character info handling
         if (_ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
-        _chat = new Chat(_ollama, characterInfo.Prompt)
+        PersistMessageHistory();
+
+        _chat = new Chat(_ollama)
         {
             Options = new OllamaSharp.Models.RequestOptions()
             {
-                PresencePenalty = 0.5f,
-                TopP = 0.8f,
-                TopK = 20,
+                PresencePenalty = 0.8f,
+                Temperature = 0.6f,
                 MinP = 0,
-                Temperature = 0.7f,
+                TopK = 20,
+                TopP = 0.95f,
             }
         };
 
@@ -74,17 +122,17 @@ partial class OllamaChatSession
         {
             LogEvent("TOOLS: " + string.Join(", ", _activeTools.Select(t => t.Function?.Name)));
         }
-        SaveContext();
+        LogEvent("ForceReload: " + forceReload);
         _activeCharacter = characterInfo;
-
+        _chat.Messages.Clear();
         if (forceReload)
         {
-            ClearContext();
+            ClearActiveNpcState();
             AddWarmupDialogue();
         }
         else
         {
-            if (!TryLoadContext())
+            if (!TryRestoreMessageHistory())
             {
                 AddWarmupDialogue();
             }
@@ -109,41 +157,40 @@ partial class OllamaChatSession
         }
     }
 
-    Dictionary<string, List<Message>> MessageHistory = new();
-    private void SaveContext()
+    private void PersistMessageHistory()
     {
         if (_chat == null || _activeCharacter == null)
         {
             return;
         }
 
-        if (!MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
-        {
-            messages = new();
-            MessageHistory.Add(_activeCharacter.Name, messages);
-        }
-
-        messages.AddRange(_chat.Messages);
+        var state = GetOrAddNpcState(_activeCharacter.Name);
+        state.MessageHistory.Clear();
+        state.MessageHistory.AddRange(_chat.Messages);
     }
 
-    private bool TryLoadContext()
+    private bool TryRestoreMessageHistory()
     {
-
         if (_chat == null || _activeCharacter == null)
         {
             return false;
         }
-
-        if (MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
+        var state = GetNpcStateOrNull(_activeCharacter.Name);
+        if (state == null)
         {
-            _chat.Messages = messages;
-            return true;
+            LogError($"State not found for {_activeCharacter.Name}");
+            return false;
         }
-
-        return false;
+        if (state.MessageHistory.Count <= 0)
+        {
+            return false;
+        }
+        _chat.Messages.Clear();
+        _chat.Messages.AddRange(state.MessageHistory);
+        return true;
     }
 
-    private void ClearContext()
+    private void ClearActiveNpcState()
     {
         if (_chat == null || _activeCharacter == null)
         {
@@ -151,18 +198,14 @@ partial class OllamaChatSession
         }
 
         _chat.Messages.Clear();
-        if (MessageHistory.TryGetValue(_activeCharacter.Name, out var messages))
-        {
-            messages.Clear();
-        }
-
+        RemoveNpcState(_activeCharacter.Name);
     }
 
     public void Save(string path)
     {
         try
         {
-            SaveContext();
+            PersistMessageHistory();
             var dir = Path.GetDirectoryName(path);
             if (dir != null)
             {
@@ -170,10 +213,10 @@ partial class OllamaChatSession
             }
 
             using var stream = File.Create(path);
+            var state = GetActiveNpcState();
+            //var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
 
-            var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
-
-            JsonSerializer.Serialize(stream, saveFile, SourceGenContext.Default.SaveFile);
+            //JsonSerializer.Serialize(stream, saveFile, SourceGenContext.Default.SaveFile);
         }
         catch (Exception e)
         {
@@ -187,15 +230,15 @@ partial class OllamaChatSession
         try
         {
             using var stream = File.OpenRead(location);
-            SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
-            if (saveFile == null)
-            {
-                LogError("Error Loading savefile. Abort.");
-                return;
-            }
-            MessageHistory = saveFile.MessageHistory;
-            _documents = saveFile.Documents;
-            TryLoadContext();
+            //SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
+            //if (saveFile == null)
+            //{
+            //    LogError("Error Loading savefile. Abort.");
+            //    return;
+            //}
+            //MessageHistory = saveFile.MessageHistory;
+            //_documents = saveFile.Documents;
+            //TryRestoreMessageHistory();
         }
         catch (Exception e)
         {
@@ -219,42 +262,46 @@ partial class OllamaChatSession
         It is of utmost importance that you preform this job with urgency and care.
         Do not talk. Simply concentrate on your task. Only ever call a function ONCE!
         """;
+
+    bool waitForEvaluation = false;
     public async Task ChatAsync(string message)
     {
         try
         {
-            if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-            string response = await GetAIMessageAsync(message, Enumerable.Empty<object>());
+            while (waitForEvaluation) ;
+            var character = _activeCharacter;
+            if (character == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
+            string response = await GetAIMessageAsync(message, []);
             Console.WriteLine();
-
             response = StripNonLatin().Replace(response, "");
-            Log($"{_activeCharacter.Name}: {response}", ConsoleColor.Gray);
-            var tempCharacter = _activeCharacter;
+            Log($"{character.Name}: {response}", ConsoleColor.Gray);
+            waitForEvaluation = true;
+            //send response
+            if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
+            {
+                var token = new AnswerTokenInfo(false, character.Name, response);
+                _netPacketProcessor.WriteNetSerializable(_writer, ref token);
+                _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                _writer.Reset();
+            }
             Console.WriteLine();
-            LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, tempCharacter.AvailableTools, []), true);
+            await LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, character.AvailableTools, [], []), true);
             string prompt = $"""
             Evaluate the following set of messages:
             User:
             {message}
 
-            {tempCharacter.Name}:
+            {character.Name}:
             {response}
             """;
             Console.WriteLine();
             //Hack to make quests related to this character visible for the instructor
-            Instance!._activeCharacter!.Name = tempCharacter.Name;
+            Instance!._activeCharacter!.Name = character.Name;
             string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
             Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow, LogLevel.Information);
-
-            LoadCharacter(tempCharacter, false);
-            //send response
-            if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
-            {
-                var token = new AnswerTokenInfo(false, _activeCharacter?.Name ?? "", response);
-                _netPacketProcessor.WriteNetSerializable(_writer, ref token);
-                _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
-                _writer.Reset();
-            }
+            Instance!._activeCharacter!.Name = InstructorName;
+            await LoadCharacter(character, false);
+            waitForEvaluation = false;
         }
         catch (Exception e)
         {

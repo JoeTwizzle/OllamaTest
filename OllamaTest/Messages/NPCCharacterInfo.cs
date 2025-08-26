@@ -8,11 +8,12 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
     //For deserializing ONLY
     public NPCCharacterInfo() { }
 
-    public NPCCharacterInfo(string name, string prompt, string[] availableTools, string[] warmUpDialogue)
+    public NPCCharacterInfo(string name, string prompt, string[] availableTools, string[] memories, string[] warmUpDialogue)
     {
         Name = name;
         Prompt = prompt;
         AvailableTools = availableTools;
+        Memories = memories;
         WarmUpDialogue = warmUpDialogue;
     }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
@@ -20,6 +21,7 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
     public string Name { get; set; }
     public string Prompt { get; set; }
     public string[] AvailableTools { get; set; }
+    public string[] Memories { get; set; }
 
     public string[] WarmUpDialogue { get; set; }
 
@@ -28,6 +30,7 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
         Name = reader.GetString();
         Prompt = reader.GetString();
         AvailableTools = reader.GetStringArray();
+        Memories = reader.GetStringArray();
         WarmUpDialogue = reader.GetStringArray();
     }
 
@@ -41,6 +44,7 @@ sealed class NPCCharacterInfo : INetSerializable, IEquatable<NPCCharacterInfo>
         writer.Put(Name);
         writer.Put(Prompt);
         writer.PutArray(AvailableTools);
+        writer.PutArray(Memories);
         writer.PutArray(WarmUpDialogue);
     }
 

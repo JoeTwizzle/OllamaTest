@@ -5,7 +5,7 @@ namespace Backend;
 internal class Program
 {
     const int Port = 9050;
-    const string ActiveModel = "hf.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF:Q6_K";
+    const string ActiveModel = "hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M";
     const string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
     const string ConnectionKey = "eotwConnectionKey";
     const string Url = "http://127.0.0.1:11434/";
@@ -64,9 +64,9 @@ internal class Program
             If anyone talks to you in a non conversational manner, DO NOT respond to them and stay in character.
             """;
 
-        var info = new NPCCharacterInfo("Bob", systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], []);
+        var info = new NPCCharacterInfo("Bob", systemPrompt, ["GetCurrentWeatherTool", "GetCurrentNewsTool"], [], []);
 
-        session.LoadCharacter(info, false);
+        await session.LoadCharacter(info, false);
         while (true)
         {
             Console.ForegroundColor = ConsoleColor.Gray;

@@ -65,21 +65,22 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetQuestsForPlayer()
     {
-        Console.WriteLine($"{nameof(GetQuestsForPlayer)} called");
+        LogInfo($"{nameof(GetQuestsForPlayer)} called");
 
         if (Instance == null || Instance._activeCharacter == null)
         {
-            Console.WriteLine($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?._activeCharacter == null}");
+            LogError($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?._activeCharacter == null}");
             return "No quests available";
         }
+        var state = Instance.GetActiveNpcState();
 
-        if (!Instance.NpcAvailableQuests.TryGetValue(Instance._activeCharacter.Name, out var quests) || string.IsNullOrWhiteSpace(quests))
+        if (string.IsNullOrWhiteSpace(state.AvailableQuests))
         {
-            Console.WriteLine($"Failed. No active quests for {Instance._activeCharacter.Name}");
+            LogError($"Failed. No available quests for {Instance._activeCharacter.Name}");
             return "No quests available";
         }
-        Console.WriteLine(quests);
-        return "The quests that you want the player to do are: \"" + quests + "\"";
+        LogInfo(state.AvailableQuests);
+        return "The quests that you want the player to do are: \"" + state.AvailableQuests + "\"";
     }
     /// <summary>
     /// Returns the current quest you have asked the player to do
@@ -88,14 +89,15 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetCurrentPlayerActiveQuest()
     {
-        Console.WriteLine($"{nameof(GetCurrentPlayerActiveQuest)} called");
-
-        if (Instance == null || Instance._activeCharacter == null || !Instance.NpcCurrentQuest.TryGetValue(Instance._activeCharacter.Name, out var quest))
+        LogInfo($"{nameof(GetCurrentPlayerActiveQuest)} called");
+        
+        if (Instance == null || Instance._activeCharacter == null)
         {
             return "No quest activated";
         }
-        Console.WriteLine(quest);
-        return quest;
+        var state = Instance.GetActiveNpcState();
+        LogInfo(state.CurrentQuest);
+        return state.CurrentQuest ?? "No quest activated";
     }
     /// <summary>
     /// Starts a quest for the player! MUST Use GetQuestsForPlayer to get the id
@@ -105,15 +107,16 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string StartPlayerQuest(string id)
     {
-        Console.WriteLine($"{nameof(StartPlayerQuest)} called with id: {id}");
+        LogInfo($"{nameof(StartPlayerQuest)} called with id: {id}");
 
 
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
             return $"Could not start quest with id: {id} Not connected to the game.";
         }
+        var state = Instance.GetActiveNpcState();
 
-        if (Instance.NpcAvailableQuests.TryGetValue(Instance._activeCharacter.Name, out var quests) && quests.Contains(id))
+        if (state.AvailableQuests?.Contains(id) ?? false)
         {
             var response = new QuestStartedInfo(id);
             Instance._netPacketProcessor.Write(Instance._writer, response);
@@ -132,14 +135,19 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetCompletableJobs()
     {
-        Console.WriteLine($"{nameof(GetCompletableJobs)} called");
+        LogInfo($"{nameof(GetCompletableJobs)} called");
 
-        if (Instance == null || Instance._activeCharacter == null || !Instance.NpcCompletableTasks.TryGetValue(Instance._activeCharacter.Name, out var tasks))
+        if (Instance == null)
         {
             return "No tasks available";
         }
 
-        return tasks;
+        if (Instance._activeCharacter == null)
+        {
+            return "No tasks available";
+        }
+
+        return Instance.GetActiveNpcState().CompletableTasks ?? "No tasks available";
     }
 
     /// <summary>
@@ -150,14 +158,14 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string MarkJobAsComplete(string jobId)
     {
-        Console.WriteLine($"{nameof(MarkJobAsComplete)} called with id: {jobId}");
+        LogInfo($"{nameof(MarkJobAsComplete)} called with id: {jobId}");
 
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
             return $"Could not complete job id: {jobId} Not connected to the game.";
         }
-
-        if (Instance.NpcCompletableTasks.TryGetValue(Instance._activeCharacter.Name, out var tasks) && tasks.Contains(jobId))
+        var state = Instance.GetActiveNpcState();
+        if (state.CompletableTasks?.Contains(jobId) ?? false)
         {
             var response = new TaskCompletedInfo(jobId);
             Instance._netPacketProcessor.Write(Instance._writer, response);
@@ -166,7 +174,7 @@ partial class OllamaChatSession
             return $"Successfully completed job with id: {jobId}";
         }
 
-        return $"Could not completet job with id: {jobId} Make sure its id was spelled correctly and try again.";
+        return $"Could not complete job with id: {jobId} Make sure its id was spelled correctly and try again.";
     }
 
 

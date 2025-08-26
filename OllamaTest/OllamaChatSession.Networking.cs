@@ -3,6 +3,7 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Backend;
 partial class OllamaChatSession
@@ -18,7 +19,7 @@ partial class OllamaChatSession
     public void RunServer(int port, string connectionKey)
     {
         ShouldRun = true;
-        EventBasedNetListener listener = new EventBasedNetListener();
+        EventBasedNetListener listener = new();
         NetManager server = new(listener);
         if (!server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port))
         {
@@ -61,8 +62,7 @@ partial class OllamaChatSession
         listener.PeerDisconnectedEvent += (peer, info) =>
         {
             LogEvent("Unity disconnected!");
-            ClearDocuments();
-            ClearContext();
+            ClearNpcStates();
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
@@ -131,14 +131,10 @@ partial class OllamaChatSession
         Load(info.Path);
     }
 
-    readonly Dictionary<string, string> NpcCurrentQuest = new();
-    readonly Dictionary<string, string> NpcAvailableQuests = new();
-    readonly Dictionary<string, string> NpcCompletableTasks = new();
-
     private async void OnQuestInfoRecieved(UpdateQuestsInfo info)
     {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcAvailableQuests, info.Name, out _);
-        value = info.Quests;
+        var state = GetNpcState(info.Name);
+        state.AvailableQuests = info.Quests;
         try
         {
             string input = $"""
@@ -156,8 +152,8 @@ partial class OllamaChatSession
 
     private async void OnActiveQuestInfoRecieved(UpdateActiveQuestsInfo info)
     {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCurrentQuest, info.Name, out _);
-        value = info.Quest;
+        var state = GetNpcState(info.Name);
+        state.CurrentQuest = info.Quest;
         try
         {
             string input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
@@ -172,8 +168,8 @@ partial class OllamaChatSession
 
     private async void OnTaskInfoRecieved(UpdateTasksInfo info)
     {
-        ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(NpcCompletableTasks, info.Name, out _);
-        value = info.Quests;
+        var state = GetNpcState(info.Name);
+        state.CompletableTasks = info.Quests;
         try
         {
             string input = $"The tasks, that {info.Name} can mark as completed for the current active quest, are:\n{info.Quests}";
@@ -239,7 +235,7 @@ partial class OllamaChatSession
     {
         LogEvent("Loading character...");
         LogInfo(characterInfo.ToString());
-        LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
+        using var _ = LoadCharacter(characterInfo.NPCCharacterInfo, characterInfo.ForceReload);
         if (_unityPeer != null)
         {
             var info = new AcknowledgeInfo();
@@ -265,7 +261,7 @@ partial class OllamaChatSession
     private void OnSaveCommandRecieved(SaveContextInfo saveContextInfo)
     {
         Console.WriteLine($"Saving context...");
-        SaveContext();
+        PersistMessageHistory();
         if (_unityPeer != null)
         {
             var info = new AcknowledgeInfo();
@@ -278,7 +274,7 @@ partial class OllamaChatSession
     private void OnLoadCommandRecieved(LoadContextInfo loadContextInfo)
     {
         Console.WriteLine($"Loading context...");
-        TryLoadContext();
+        TryRestoreMessageHistory();
         if (_unityPeer != null)
         {
             var info = new AcknowledgeInfo();
@@ -291,7 +287,7 @@ partial class OllamaChatSession
     private void OnClearCommandRecieved(ClearContextInfo clearContextInfo)
     {
         Console.WriteLine($"Clearing context...");
-        ClearContext();
+        ClearActiveNpcState();
 
         if (_unityPeer != null)
         {

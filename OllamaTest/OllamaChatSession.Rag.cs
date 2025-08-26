@@ -1,6 +1,8 @@
+using Microsoft.Extensions.AI;
 using OllamaSharp.Models;
 using System.Data;
 using System.Runtime.InteropServices;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 
@@ -8,16 +10,12 @@ internal record Document(string Text, List<float[]> Embedding);
 partial class OllamaChatSession
 {
     private const float SimilarityThreshold = 0.2f; // Minimum relevance threshold
-    private Dictionary<string, List<Document>> _documents = [];
 
-    public void ClearDocuments()
-    {
-        _documents.Clear();
-    }
 
     public void RemoveDocuments(string npcName)
     {
-        _documents.Remove(npcName);
+        var state = GetNpcState(npcName);
+        state.RagDocuments.Clear();
     }
 
     public async Task AddDocument(string npcName, string text)
@@ -36,35 +34,25 @@ partial class OllamaChatSession
 
         var request = new EmbedRequest() { Input = [text], Model = _embeddingModel };
         var embedding = await _ollama.EmbedAsync(request);
-        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, npcName, out var exists);
-        if (!exists)
-        {
-            list = new();
-        }
-        list!.Add(new Document(text, embedding.Embeddings));
+        var state = GetNpcState(npcName);
+        state.RagDocuments.Add(new Document(text, embedding.Embeddings));
     }
 
     public void AddDocument(string npcName, Document document)
     {
-        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(_documents, npcName, out var exists);
-        if (!exists)
-        {
-            list = new();
-        }
-        list!.Add(document);
+        var state = GetNpcState(npcName);
+        state.RagDocuments.Add(document);
     }
 
     public void RemoveDocument(string npcName, string text)
     {
-        if (_documents.TryGetValue(npcName, out var list))
+        var state = GetNpcState(npcName);
+        var doc = state.RagDocuments.Where(x => x.Text == text).FirstOrDefault();
+        if (doc == null)
         {
-            var doc = list.Where(x => x.Text == text).FirstOrDefault();
-            if (doc == null)
-            {
-                return;
-            }
-            list.Remove(doc);
+            return;
         }
+        state.RagDocuments.Remove(doc);
     }
 
     public async Task<string> GetFinalPromptAsync(string npcName, string userPrompt)
@@ -88,9 +76,11 @@ partial class OllamaChatSession
 
         // Find best document with similarity score
         //TODO: Maybe allow more than one doc to be returned?
-        if (_documents.TryGetValue(npcName, out var val))
+        var state = GetNpcState(npcName);
+
+        if (state.RagDocuments.Count > 0)
         {
-            var bestMatch = val.Select(doc => new
+            var bestMatch = state.RagDocuments.Select(doc => new
             {
                 Document = doc,
                 Similarity = CosineSimilarity(questionEmbedding.Embeddings, doc.Embedding)
@@ -101,7 +91,7 @@ partial class OllamaChatSession
                 return userPrompt;
 
             var prompt = $"""
-            You may use the following context to aid your answer to a question. 
+            You may use the following context to aid your answer. 
             If you don't know the answer, just say so OR ask the user to specify what they mean.
             
             Context:
