@@ -9,6 +9,7 @@ using System.Data;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Backend;
 
@@ -128,18 +129,18 @@ partial class OllamaChatSession
         if (forceReload)
         {
             ClearActiveNpcState();
-            AddWarmupDialogue();
+            await InitNewCharacter();
         }
         else
         {
             if (!TryRestoreMessageHistory())
             {
-                AddWarmupDialogue();
+                await InitNewCharacter();
             }
         }
     }
 
-    void AddWarmupDialogue()
+    async Task InitNewCharacter()
     {
         if (_chat == null || _activeCharacter == null)
         {
@@ -148,6 +149,10 @@ partial class OllamaChatSession
         if (_chat.Model.Contains("qwen3"))
         {
             _chat.Think = false;
+        }
+        foreach (var memory in _activeCharacter.Memories)
+        {
+            await AddDocument(_activeCharacter.Name, memory);
         }
         _chat.Messages.Add(new Message(ChatRole.System, _activeCharacter.Prompt));
         foreach ((var i, var message) in _activeCharacter.WarmUpDialogue.Index())
