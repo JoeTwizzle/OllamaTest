@@ -218,10 +218,9 @@ partial class OllamaChatSession
             }
 
             using var stream = File.Create(path);
-            var state = GetActiveNpcState();
-            //var saveFile = new SaveFile() { MessageHistory = MessageHistory, Documents = _documents };
+            var saveFile = new SaveFile(_npcStates);
 
-            //JsonSerializer.Serialize(stream, saveFile, SourceGenContext.Default.SaveFile);
+            JsonSerializer.Serialize(stream, saveFile, SourceGenContext.Default.SaveFile);
         }
         catch (Exception e)
         {
@@ -235,15 +234,28 @@ partial class OllamaChatSession
         try
         {
             using var stream = File.OpenRead(location);
-            //SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
-            //if (saveFile == null)
-            //{
-            //    LogError("Error Loading savefile. Abort.");
-            //    return;
-            //}
-            //MessageHistory = saveFile.MessageHistory;
-            //_documents = saveFile.Documents;
-            //TryRestoreMessageHistory();
+            SaveFile? saveFile = JsonSerializer.Deserialize(stream, SourceGenContext.Default.SaveFile);
+            if (saveFile == null)
+            {
+                LogError("Error Loading savefile. Abort.");
+                return;
+            }
+
+            _npcStates.Clear();
+            foreach (var item in saveFile.NpcInfo)
+            {
+                var npcSaveInfo = item.Value;
+                var npcState = new NpcState(
+                    npcSaveInfo.InventoryState,
+                    npcSaveInfo.MessageHistory,
+                    npcSaveInfo.RagDocuments,
+                    npcSaveInfo.CurrentQuest,
+                    npcSaveInfo.AvailableQuests,
+                    npcSaveInfo.CompletableTasks
+                );
+
+                _npcStates[item.Key] = npcState;
+            }
         }
         catch (Exception e)
         {
