@@ -302,9 +302,23 @@ partial class OllamaChatSession
                 _writer.Reset();
             }
             Console.WriteLine();
+            string a = "Evaluate the following set of messages:";
+            string b = "";
+            if (_chat.Messages.Count > 4
+                && _chat.Messages[^4].Role == ChatRole.User
+                && _chat.Messages[^3].Role == ChatRole.Assistant)
+            {
+                LogEvent("Additional context!");
+                b = $"""          
+                    User:
+                    {_chat.Messages[^4].Content}
+
+                    {character.Name}:
+                    {_chat.Messages[^3].Content}
+                    """;
+            }
             await LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, character.AvailableTools, [], []), true);
-            string prompt = $"""
-            Evaluate the following set of messages:
+            string prompt = a + b + $"""          
             User:
             {message}
 
