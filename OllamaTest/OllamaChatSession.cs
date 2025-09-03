@@ -98,6 +98,7 @@ partial class OllamaChatSession
 
     public async Task LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
+        LogEvent("Setting character to: " + characterInfo.Name);
         //TODO: structured character info handling
         if (_ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         PersistMessageHistory();
@@ -270,29 +271,27 @@ partial class OllamaChatSession
         1. Analyze the conversation for one of the topics listed in:
         GetQuestsForPlayer,
         GetCurrentPlayerActiveQuest,
-        GetCompletableJobs,
 
-        2. Call one of the following functions when appropriate
+        2. Call the following function when appropriate
         StartPlayerQuest
-        MarkJobAsComplete,
 
         It is of utmost importance that you preform this job with urgency and care.
-        Do not talk. Simply concentrate on your task. Only ever call a function ONCE!
+        When you are done simply say "DONE".
         """;
 
-    bool waitForEvaluation = false;
+    long waitForEvaluation = 0;
     public async Task ChatAsync(string message)
     {
+        Log("Generating message for: " + _activeCharacter?.Name ?? "Null", ConsoleColor.DarkRed, LogLevel.Information);
         try
         {
-            while (waitForEvaluation) ;
+            while (Interlocked.CompareExchange(ref waitForEvaluation, 1, 0) != 0) ;
             var character = _activeCharacter;
             if (character == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
             string response = await GetAIMessageAsync(message, []);
             Console.WriteLine();
             response = StripNonLatin().Replace(response, "");
             Log($"{character.Name}: {response}", ConsoleColor.Gray);
-            waitForEvaluation = true;
             //send response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
             {
@@ -302,22 +301,22 @@ partial class OllamaChatSession
                 _writer.Reset();
             }
             Console.WriteLine();
-            string a = "Evaluate the following set of messages:";
+            string a = "Evaluate the following set of messages:" + Environment.NewLine;
             string b = "";
             if (_chat.Messages.Count > 4
                 && _chat.Messages[^4].Role == ChatRole.User
                 && _chat.Messages[^3].Role == ChatRole.Assistant)
             {
                 LogEvent("Additional context!");
-                b = $"""          
+                b = $"""
                     User:
                     {_chat.Messages[^4].Content}
 
                     {character.Name}:
                     {_chat.Messages[^3].Content}
-                    """;
+                    """ + Environment.NewLine;
             }
-            await LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, character.AvailableTools, [], []), true);
+            LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, character.AvailableTools, [], []), true).Wait();
             string prompt = a + b + $"""          
             User:
             {message}
@@ -331,8 +330,8 @@ partial class OllamaChatSession
             string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
             Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow, LogLevel.Information);
             Instance!._activeCharacter!.Name = InstructorName;
-            await LoadCharacter(character, false);
-            waitForEvaluation = false;
+            LoadCharacter(character, false).Wait();
+            Interlocked.Exchange(ref waitForEvaluation, 0);
         }
         catch (Exception e)
         {
