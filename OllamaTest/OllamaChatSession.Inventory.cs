@@ -9,6 +9,23 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
+    public void SetInventory(string npc, string[] items)
+    {
+        var state = GetNpcState(npc);
+        state.InventoryState.Clear();
+        LogEvent($"Inventory set to new state for: {npc}", ConsoleColor.DarkRed);
+        foreach (var item in items)
+        {
+            LogEvent(item, ConsoleColor.DarkRed);
+            ref var itemStack = ref CollectionsMarshal.GetValueRefOrAddDefault(state.InventoryState, item, out var exists);
+            if (!exists)
+            {
+                itemStack = 0;
+            }
+            itemStack++;
+        }
+    }
+
     public void AddItem(string npc, string item)
     {
         var state = GetNpcState(npc);
@@ -34,6 +51,7 @@ partial class OllamaChatSession
         if (itemStack == 0)
         {
             state.InventoryState.Remove(item);
+            LogWarning($"{item} completely removed from {npc}");
         }
     }
 

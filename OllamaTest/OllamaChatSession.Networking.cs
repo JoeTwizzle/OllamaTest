@@ -46,6 +46,7 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<HeartBeatInfo>(OnHeartBeatRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<NPCItemChangeInfo>(OnNPCItemChanged);
+        _netPacketProcessor.SubscribeNetSerializable<NPCInventoryChangeInfo>(OnNPCInventoryChanged);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateQuestsInfo>(OnQuestInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<UpdateTasksInfo>(OnTaskInfoRecieved);
@@ -76,6 +77,7 @@ partial class OllamaChatSession
 
     private async void OnNPCItemChanged(NPCItemChangeInfo info)
     {
+        LogEvent("Items changed: " + info.ItemName + " for " + info.NPCName);
         try
         {
             var doc = await GetEmbeddedInventoryAsync(info.NPCName);
@@ -92,6 +94,36 @@ partial class OllamaChatSession
             {
                 RemoveDocument(info.NPCName, doc.Text);
             }
+
+            var newdoc = await GetEmbeddedInventoryAsync(info.NPCName);
+            if (newdoc != null)
+            {
+                AddDocument(info.NPCName, newdoc);
+            }
+        }
+        catch (Exception e)
+        {
+            LogError(e.ToString());
+        }
+    }
+
+    private async void OnNPCInventoryChanged(NPCInventoryChangeInfo info)
+    {
+        LogEvent("inventory changed for " + info.NPCName, ConsoleColor.DarkRed);
+        foreach (var item in info.ItemNames)
+        {
+            LogEvent(item, ConsoleColor.DarkRed);
+        }
+        try
+        {
+            var doc = await GetEmbeddedInventoryAsync(info.NPCName);
+
+            if (doc != null)
+            {
+                RemoveDocument(info.NPCName, doc.Text);
+            }
+
+            SetInventory(info.NPCName, info.ItemNames);
 
             var newdoc = await GetEmbeddedInventoryAsync(info.NPCName);
             if (newdoc != null)

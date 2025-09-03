@@ -14,14 +14,19 @@ internal static class Utils
         Console.ForegroundColor = prevColor;
     }
 
-    public static void LogEvent(string? message)
+    public static void LogEvent(string? message, ConsoleColor color = ConsoleColor.Blue)
     {
-        Log(message, ConsoleColor.Blue, LogLevel.Information);
+        Log(message, color, LogLevel.Information);
     }
 
     public static void LogInfo(string? message)
     {
         Log(message, ConsoleColor.Gray, LogLevel.Information);
+    }
+
+    public static void LogWarning(string? message)
+    {
+        Log(message, ConsoleColor.Yellow, LogLevel.Error);
     }
 
     public static void LogError(string? message)

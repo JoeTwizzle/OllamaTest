@@ -16,6 +16,7 @@ partial class OllamaChatSession
     {
         var state = GetNpcState(npcName);
         state.RagDocuments.Clear();
+        LogWarning($"{npcName}'s documents cleared");
     }
 
     public async Task AddDocument(string npcName, string text)
@@ -53,6 +54,7 @@ partial class OllamaChatSession
             return;
         }
         state.RagDocuments.Remove(doc);
+        LogWarning($"{npcName}'s document with text: {Environment.NewLine}{Environment.NewLine}{text}{Environment.NewLine}{Environment.NewLine} Was removed.");
     }
 
     public async Task<string> GetFinalPromptAsync(string npcName, string userPrompt)
@@ -80,22 +82,26 @@ partial class OllamaChatSession
 
         if (state.RagDocuments.Count > 0)
         {
-            var bestMatch = state.RagDocuments.Select(doc => new
+            var bestMatches = state.RagDocuments.Select(doc => new
             {
                 Document = doc,
                 Similarity = CosineSimilarity(questionEmbedding.Embeddings, doc.Embedding)
             })
-            .MaxBy(x => x.Similarity);
+            .OrderBy(x => x.Similarity)
+            .Where(x => x.Similarity >= SimilarityThreshold)
+            .Take(3)
+            .ToArray();
 
-            if (bestMatch == null || bestMatch.Similarity < SimilarityThreshold)
+            if (bestMatches.Length == 0)
                 return userPrompt;
 
+            var context = string.Join("\n\n---\n\n", bestMatches.Select(m => m.Document.Text));
             var prompt = $"""
             You may use the following context to aid your answer. 
             If you don't know the answer, just say so OR ask the user to specify what they mean.
             
             Context:
-            {bestMatch.Document.Text}
+            {context}
             
             Question: 
             {userPrompt}

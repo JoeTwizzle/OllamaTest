@@ -1,7 +1,10 @@
 using Backend.Messages;
 using LiteNetLib;
+using LiteNetLib.Utils;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
+using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 
@@ -29,6 +32,8 @@ partial class OllamaChatSession
         new GetCurrentPlayerActiveQuestTool(),
         new GetCompletableJobsTool(),
         new MarkJobAsCompleteTool(),
+        new GiveItemToPlayerTool(),
+        new GetItemsTool(),
     ];
 
     public static IEnumerable<Tool> SelectTools(string[] tools)
@@ -90,7 +95,7 @@ partial class OllamaChatSession
     public static string GetCurrentPlayerActiveQuest()
     {
         LogInfo($"{nameof(GetCurrentPlayerActiveQuest)} called");
-        
+
         if (Instance == null || Instance._activeCharacter == null)
         {
             return "No quest activated";
@@ -177,6 +182,69 @@ partial class OllamaChatSession
         return $"Could not complete job with id: {jobId} Make sure its id was spelled correctly and try again.";
     }
 
+    /// <summary>
+    /// Gets which items are in the Npc inventory. Must call GiveItemToPlayer after if an item should be transfered
+    /// </summary>
+    /// <returns>A list of items and their counts in the Npc inventory.</returns>
+    [OllamaTool]
+    public static string GetItems()
+    {
+        LogInfo($"{nameof(GetItems)} called");
+
+        if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
+        {
+            return $"ERROR: Could not get items. Not connected to the game.";
+        }
+        var state = Instance.GetActiveNpcState();
+        string text;
+        if (state.InventoryState.Count > 0)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine($"{Instance._activeCharacter.Name} has the following items in their inventory:");
+            foreach (var item in state.InventoryState)
+            {
+                //E.g.: Mushroom (x10)
+                sb.AppendLine($"Name: {item.Key} Count: {item.Value}");
+            }
+            text = sb.ToString();
+        }
+        else
+        {
+            text = $"{Instance._activeCharacter.Name} has nothing in their inventory";
+        }
+        LogInfo(text);
+        return text;
+    }
+
+    /// <summary>
+    /// Gives an item from the Npc inventory to the player. Must always use GetItems before calling this to get the name of the item to give.
+    /// </summary>
+    /// <param name="itemName">The item to give to the player</param>
+    /// <returns>Info about the result of this operation</returns>
+    [OllamaTool]
+    public static string GiveItemToPlayer(string itemName)
+    {
+        LogInfo($"{nameof(GiveItemToPlayer)} called with item: {itemName}");
+
+        if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
+        {
+            return $"ERROR: Could not give item \"{itemName}\" to player. Not connected to the game.";
+        }
+        var state = Instance.GetActiveNpcState();
+        if (state.InventoryState.ContainsKey(itemName))
+        {
+            var response = new GiveItemToPlayerInfo(itemName, Instance._activeCharacter.Name);
+            NetPacketProcessor _netPacketProcessor = new();
+            var writer = new NetDataWriter();
+            _netPacketProcessor.WriteNetSerializable(writer, ref response);
+            Instance._unityPeer.Send(writer, DeliveryMethod.ReliableOrdered);
+            writer.Reset();
+            LogInfo($"{nameof(GiveItemToPlayer)} called with item: {itemName}");
+            return $"Successfully gave item \"{itemName}\" to player";
+        }
+        LogInfo("Item not found: " + itemName);
+        return $"Could not give item \"{itemName}\" to player. The item was not found in the inventory. Please ensure that the name is spelled correctly and try again!";
+    }
 
     /// <summary>
     /// Get the current news for a specified location

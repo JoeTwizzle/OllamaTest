@@ -6,10 +6,12 @@ using OllamaSharp;
 using OllamaSharp.Models.Chat;
 using System;
 using System.Data;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Backend;
 
@@ -88,11 +90,13 @@ partial class OllamaChatSession
 
     private void RemoveNpcState(string name)
     {
+        LogWarning($"{name}'s NPC state cleared");
         _npcStates.Remove(name);
     }
 
     private void ClearNpcStates()
     {
+        LogWarning("All NPC states cleared");
         _npcStates.Clear();
     }
 
@@ -241,6 +245,7 @@ partial class OllamaChatSession
                 LogError("Error Loading savefile. Abort.");
                 return;
             }
+            LogWarning($"All NPC states cleared loading from file: {location}");
 
             _npcStates.Clear();
             foreach (var item in saveFile.NpcInfo)
@@ -268,15 +273,17 @@ partial class OllamaChatSession
     const string InstructorPrompt = """
         You are an AI tasked with evaluating messages for relevancy and calling functions based on the content of said messages.
         Here are the tasks you MUST fulfill:
-        1. Analyze the conversation for one of the topics listed in:
+        1. Analyze the conversation. If you think it may be relevant call these functions:
         GetQuestsForPlayer,
         GetCurrentPlayerActiveQuest,
+        GetItems,
 
-        2. Call the following function when appropriate
+        2. Call the following functions when appropriate
         StartPlayerQuest
+        GiveItemToPlayer
 
-        It is of utmost importance that you preform this job with urgency and care.
-        When you are done simply say "DONE".
+        3. It is of utmost importance that you preform this job with urgency and care.
+        When you are done simply say "DONE" do not output further text.
         """;
 
     long waitForEvaluation = 0;
@@ -301,14 +308,14 @@ partial class OllamaChatSession
                 _writer.Reset();
             }
             Console.WriteLine();
-            string a = "Evaluate the following set of messages:" + Environment.NewLine;
-            string b = "";
+            string preamble = "Evaluate the following sets of messages. Your job is to invoke relevant tools:" + Environment.NewLine;
+            string prevConvo = "";
             if (_chat.Messages.Count > 4
                 && _chat.Messages[^4].Role == ChatRole.User
                 && _chat.Messages[^3].Role == ChatRole.Assistant)
             {
                 LogEvent("Additional context!");
-                b = $"""
+                prevConvo = $"""
                     User:
                     {_chat.Messages[^4].Content}
 
@@ -317,7 +324,7 @@ partial class OllamaChatSession
                     """ + Environment.NewLine;
             }
             LoadCharacter(new NPCCharacterInfo(InstructorName, InstructorPrompt, character.AvailableTools, [], []), true).Wait();
-            string prompt = a + b + $"""          
+            string prompt = preamble + prevConvo + $"""          
             User:
             {message}
 
@@ -339,6 +346,94 @@ partial class OllamaChatSession
         }
     }
 
+    public IAsyncEnumerable<string> SendAsyncHotFix(string message, IEnumerable<object>? tools,
+        IEnumerable<string>? imagesAsBase64 = null, object? format = null,
+        CancellationToken cancellationToken = default)
+        => SendAsAsyncHotFix(ChatRole.User, message, tools);
+
+    public async IAsyncEnumerable<string> SendAsAsyncHotFix(ChatRole role, string message, IEnumerable<object>? tools,
+    IEnumerable<string>? imagesAsBase64 = null, object? format = null,
+    [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (format is CancellationToken)
+            throw new NotSupportedException(
+                $"Argument \"{nameof(format)}\" cannot be of type {nameof(CancellationToken)}. Make sure you use the correct method overload of {nameof(Chat)}{nameof(_chat.SendAsync)}() or {nameof(Chat)}{nameof(SendAsAsyncHotFix)}().");
+
+        _chat.Messages.Add(new Message(role, message, imagesAsBase64?.ToArray()));
+
+        var request = new ChatRequest
+        {
+            Messages = _chat.Messages,
+            Model = _chat.Model,
+            Stream = true,
+            Tools = tools,
+            Format = format,
+            Options = _chat.Options,
+            Think = _chat.Think,
+        };
+
+        var messageBuilder = new MessageBuilder();
+        await foreach (var answer in _chat.Client.ChatAsync(request, cancellationToken).ConfigureAwait(false))
+        {
+            if (answer is null)
+                continue;
+
+            messageBuilder.Append(answer);
+
+            // yield the message content or call the delegate to handle thinking
+            var isThinking = _chat.Think == true && !string.IsNullOrEmpty(answer.Message.Thinking);
+            yield return answer.Message.Content ?? string.Empty;
+        }
+
+        if (messageBuilder.HasValue)
+        {
+            var answerMessage = messageBuilder.ToMessage();
+            _chat.Messages.Add(answerMessage);
+
+            // keep looping until no more tool calls are requested
+            while (_chat.ToolInvoker is not null &&
+                   role != ChatRole.Tool &&
+                   (answerMessage.ToolCalls?.Any() ?? false))
+            {
+                var toolResultMessages = new List<Message>();
+
+                foreach (var toolCall in answerMessage.ToolCalls)
+                {
+                    var toolResult = await _chat.ToolInvoker
+                        .InvokeAsync(toolCall, tools ?? [], cancellationToken)
+                        .ConfigureAwait(false);
+
+                    toolResultMessages.Add(new Message(
+                        ChatRole.Tool,
+                        $"Tool: {StringifyToolCall(toolCall)}:\nResult: {toolResult.Result}"
+                    ));
+                }
+
+                // Add all tool result messages into the history
+                _chat.Messages.AddRange(toolResultMessages);
+
+                // Send the last tool result back to the model and collect its response
+                var lastToolMessage = toolResultMessages.Last();
+                await foreach (var answer in SendAsAsyncHotFix(ChatRole.Tool,
+                           lastToolMessage.Content ?? "",
+                           tools,
+                           cancellationToken: cancellationToken)
+                           .ConfigureAwait(false))
+                {
+                    yield return answer;
+                }
+
+                // prepare for next iteration: see if new tool calls came from last response
+                answerMessage = _chat.Messages.Last();
+            }
+        }
+    }
+
+    private static string StringifyToolCall(Message.ToolCall toolCall)
+    {
+        return $"{toolCall.Function?.Name ?? "(unnamed tool)"}({string.Join(", ", toolCall.Function?.Arguments?.Select(kvp => $"{kvp.Key}: {kvp.Value}") ?? [])})";
+    }
+
     private async Task<string> GetAIMessageAsync(string message, IEnumerable<object> tools)
     {
         if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
@@ -346,7 +441,7 @@ partial class OllamaChatSession
         Log($"Final Prompt: {Environment.NewLine} {prompt}", ConsoleColor.DarkGray);
         //Send prompt
         string response = "";
-        await foreach (var answerToken in _chat.SendAsync(prompt, tools))
+        await foreach (var answerToken in SendAsyncHotFix(prompt, tools))
         {
             response += answerToken;
         }
