@@ -166,14 +166,29 @@ partial class OllamaChatSession
     private async void OnQuestInfoRecieved(UpdateQuestsInfo info)
     {
         var state = GetNpcState(info.Name);
+        var prevQuest = state.AvailableQuests;
         state.AvailableQuests = info.Quests;
         try
         {
-            string input = $"""
-            The things (quests) {info.Name} wants the player to help with are:           
-            {info.Quests}
-            """;
+            string input;
+            if (string.IsNullOrWhiteSpace(info.Quests))
+            {
+                input = "You currently don't need help with anything";
+            }
+            else
+            {
+                input = $"""
+                The things (quests) {info.Name} wants the player to help with are:           
+                {info.Quests}
+                """;
+            }
+
             LogEvent($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+            if (!string.IsNullOrWhiteSpace(prevQuest))
+            {
+                RemoveDocument(info.Name, prevQuest);
+            }
+
             await AddDocument(info.Name, input);
         }
         catch
@@ -185,6 +200,7 @@ partial class OllamaChatSession
     private async void OnActiveQuestInfoRecieved(UpdateActiveQuestsInfo info)
     {
         var state = GetNpcState(info.Name);
+        var prevActiveQuest = state.CurrentQuest;
         state.CurrentQuest = info.Quest;
         try
         {
@@ -198,6 +214,12 @@ partial class OllamaChatSession
                 input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
             }
             LogEvent($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+
+            if (!string.IsNullOrWhiteSpace(prevActiveQuest))
+            {
+                RemoveDocument(info.Name , prevActiveQuest);
+            }
+
             await AddDocument(info.Name, input);
         }
         catch
