@@ -116,14 +116,14 @@ partial class OllamaChatSession
         }
         try
         {
-            var doc = await GetEmbeddedInventoryAsync(info.NPCName);
+            var str = GetInventoryString(info.NPCName);
 
-            if (doc != null)
+            if (!string.IsNullOrWhiteSpace(str))
             {
-                RemoveDocument(info.NPCName, doc.Text);
+                RemoveDocument(info.NPCName, str);
             }
 
-            SetInventory(info.NPCName, info.ItemNames);
+            SetInventory(info.NPCName, info);
 
             var newdoc = await GetEmbeddedInventoryAsync(info.NPCName);
             if (newdoc != null)
@@ -188,7 +188,15 @@ partial class OllamaChatSession
         state.CurrentQuest = info.Quest;
         try
         {
-            string input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
+            string input;
+            if (string.IsNullOrWhiteSpace(state.CurrentQuest))
+            {
+                input = $"{info.Name} has not tasked the player with any quest at the moment.";
+            }
+            else
+            {
+                input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
+            }
             LogEvent($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
             await AddDocument(info.Name, input);
         }

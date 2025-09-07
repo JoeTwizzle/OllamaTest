@@ -1,3 +1,4 @@
+using Backend.Messages;
 using OllamaSharp.Models;
 using System.Data;
 using System.Runtime.CompilerServices;
@@ -9,20 +10,22 @@ namespace Backend;
 
 partial class OllamaChatSession
 {
-    public void SetInventory(string npc, string[] items)
+    public void SetInventory(string npc, NPCInventoryChangeInfo info)
     {
         var state = GetNpcState(npc);
         state.InventoryState.Clear();
         LogEvent($"Inventory set to new state for: {npc}", ConsoleColor.DarkRed);
-        foreach (var item in items)
+        foreach (var item in info.ItemNames)
         {
             LogEvent(item, ConsoleColor.DarkRed);
-            ref var itemStack = ref CollectionsMarshal.GetValueRefOrAddDefault(state.InventoryState, item, out var exists);
-            if (!exists)
-            {
-                itemStack = 0;
-            }
-            itemStack++;
+            state.InventoryState.Add(new Persistance.ItemInfo(item, ""));
+        }
+        for (int i = 0; i < info.LockedItemNames.Length; i++)
+        {
+            string? item = info.LockedItemNames[i];
+            string? reason = info.LockedItemReasons[i];
+            LogEvent(item, ConsoleColor.DarkRed);
+            state.InventoryState.Add(new Persistance.ItemInfo(item, reason));
         }
     }
 
@@ -30,29 +33,36 @@ partial class OllamaChatSession
     {
         var state = GetNpcState(npc);
 
-        ref var itemStack = ref CollectionsMarshal.GetValueRefOrAddDefault(state.InventoryState, item, out var exists);
-        if (!exists)
-        {
-            itemStack = 0;
-        }
-        itemStack++;
+        state.InventoryState.Add(new Persistance.ItemInfo(item, ""));
     }
 
     public void RemoveItem(string npc, string item)
     {
         var state = GetNpcState(npc);
 
-        ref var itemStack = ref CollectionsMarshal.GetValueRefOrNullRef(state.InventoryState, item);
-        if (Unsafe.IsNullRef(ref itemStack))
+        state.InventoryState.Remove(new Persistance.ItemInfo(item, ""));
+        LogWarning($"{item} completely removed from {npc}");
+    }
+
+    public string GetInventoryString(string npcName)
+    {
+        string text;
+        var state = GetNpcState(npcName);
+        if (state.InventoryState.Count > 0)
         {
-            return;
+            StringBuilder sb = new();
+            sb.AppendLine("You have the following items in your inventory:");
+            foreach (var item in state.InventoryState)
+            {
+                sb.AppendLine($"{item.Name} Additional info: {item.Condition ?? ""}");
+            }
+            text = sb.ToString();
         }
-        itemStack--;
-        if (itemStack == 0)
+        else
         {
-            state.InventoryState.Remove(item);
-            LogWarning($"{item} completely removed from {npc}");
+            text = "You have nothing in your inventory";
         }
+        return text;
     }
 
     public async Task<Document?> GetEmbeddedInventoryAsync(string npcName)
@@ -68,24 +78,8 @@ partial class OllamaChatSession
             LogError("Could not add document! No embedding model specified.");
             return null;
         }
-        string text;
-        var state = GetNpcState(npcName);
-        if (state.InventoryState.Count > 0)
-        {
-            StringBuilder sb = new();
-            sb.AppendLine("You have the following items in your inventory:");
-            foreach (var item in state.InventoryState)
-            {
-                //E.g.: Mushroom (x10)
-                sb.AppendLine($"{item.Key} (x{item.Value})");
-            }
-            text = sb.ToString();
-        }
-        else
-        {
-            text = "You have nothing in your inventory";
-        }
 
+        var text = GetInventoryString(npcName);
 
         var request = new EmbedRequest() { Input = [text], Model = _embeddingModel };
         var embedding = await _ollama.EmbedAsync(request);

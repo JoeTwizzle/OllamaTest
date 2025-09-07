@@ -51,6 +51,7 @@ partial class OllamaChatSession
         var doc = state.RagDocuments.Where(x => x.Text == text).FirstOrDefault();
         if (doc == null)
         {
+            LogError($"{npcName}'s document with text: {Environment.NewLine}{Environment.NewLine}{text}{Environment.NewLine}{Environment.NewLine} Could not be removed.");
             return;
         }
         state.RagDocuments.Remove(doc);

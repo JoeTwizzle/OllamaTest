@@ -1,12 +1,13 @@
 using OllamaSharp.Models.Chat;
 using System.Text.Json.Serialization;
+using static Backend.Persistance.NpcState;
 
 namespace Backend.Persistance;
 
 [JsonSerializable(typeof(NpcSaveInfo))]
 sealed partial class NpcSaveInfo
 {
-    public Dictionary<string, int> InventoryState { get; set; }
+    public List<ItemInfo> InventoryState { get; set; }
     public List<Message> MessageHistory { get; set; }
     public List<Document> RagDocuments { get; set; }
     public string? CurrentQuest { get; set; }
