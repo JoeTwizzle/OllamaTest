@@ -1,8 +1,5 @@
-using Microsoft.Extensions.AI;
 using OllamaSharp.Models;
 using System.Data;
-using System.Runtime.InteropServices;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 

@@ -1,10 +1,6 @@
 using Backend.Messages;
 using OllamaSharp.Models;
-using System.Data;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 

@@ -1,6 +1,4 @@
 using OllamaSharp.Models.Chat;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
 
 namespace Backend.Persistance;
 public partial struct ItemInfo

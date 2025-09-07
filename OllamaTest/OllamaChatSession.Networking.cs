@@ -2,8 +2,6 @@ using Backend.Messages;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Net;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 namespace Backend;
 partial class OllamaChatSession
@@ -217,7 +215,7 @@ partial class OllamaChatSession
 
             if (!string.IsNullOrWhiteSpace(prevActiveQuest))
             {
-                RemoveDocument(info.Name , prevActiveQuest);
+                RemoveDocument(info.Name, prevActiveQuest);
             }
 
             await AddDocument(info.Name, input);

@@ -4,14 +4,11 @@ using Backend.Persistance;
 using LiteNetLib;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
-using System;
 using System.Data;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace Backend;
 

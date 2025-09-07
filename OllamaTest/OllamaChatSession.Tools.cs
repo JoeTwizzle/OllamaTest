@@ -4,7 +4,6 @@ using LiteNetLib.Utils;
 using OllamaSharp;
 using OllamaSharp.Models.Chat;
 using System.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Backend;
 
