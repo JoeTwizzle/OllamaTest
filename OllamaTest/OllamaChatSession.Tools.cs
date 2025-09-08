@@ -203,7 +203,14 @@ partial class OllamaChatSession
             foreach (var item in state.InventoryState)
             {
                 //E.g.: Mushroom (x10)
-                sb.AppendLine($"{item.Name} Additional info: {item.Condition ?? ""}");
+                if (!string.IsNullOrWhiteSpace(item.Condition))
+                {
+                    sb.AppendLine($"Item: {item.Name} Additional info: {item.Condition ?? ""}");
+                }
+                else
+                {
+                    sb.AppendLine($"Item: {item.Name}");
+                }
             }
             text = sb.ToString();
         }
@@ -230,7 +237,7 @@ partial class OllamaChatSession
             return $"ERROR: Could not give item \"{itemName}\" to player. Not connected to the game.";
         }
         var state = Instance.GetActiveNpcState();
-        if (state.InventoryState.Any(x => x.Name == itemName))
+        if (state.InventoryState.Any(x => x.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase)))
         {
             var response = new GiveItemToPlayerInfo(itemName, Instance._activeCharacter.Name);
             NetPacketProcessor _netPacketProcessor = new();

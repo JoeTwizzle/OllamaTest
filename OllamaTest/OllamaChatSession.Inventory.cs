@@ -50,7 +50,14 @@ partial class OllamaChatSession
             sb.AppendLine("You have the following items in your inventory:");
             foreach (var item in state.InventoryState)
             {
-                sb.AppendLine($"{item.Name} Additional info: {item.Condition ?? ""}");
+                if (!string.IsNullOrWhiteSpace(item.Condition))
+                {
+                    sb.AppendLine($"Item: {item.Name} Additional info: {item.Condition ?? ""}");
+                }
+                else
+                {
+                    sb.AppendLine($"Item: {item.Name}");
+                }
             }
             text = sb.ToString();
         }
