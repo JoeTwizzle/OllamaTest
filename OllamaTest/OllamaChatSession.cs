@@ -276,7 +276,7 @@ partial class OllamaChatSession
         GetItems,
 
         2. Call the following functions when appropriate
-        StartPlayerQuest
+        StartPlayerQuest (Player must agree to help before you may call this)
         GiveItemToPlayer
 
         3. It is of utmost importance that you preform this job with urgency and care.
