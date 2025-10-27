@@ -4,9 +4,12 @@ namespace Backend;
 
 internal class Program
 {
+    //TODO: ADD INIT RPC FUNCTION
+    //TODO: ADD RESPONSE ON ITEM GIVE
+    //TODO: ADD BETTER LOGGING
     const int Port = 9050;
     const string ActiveModel = "hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M";
-    const string EmbeddingModel = "dengcao/Qwen3-Embedding-0.6B:Q8_0";
+    const string EmbeddingModel = "qwen3-embedding:0.6b";
     const string ConnectionKey = "eotwConnectionKey";
     const string Url = "http://127.0.0.1:11434/";
     const string HelpMessage = "You may specify the game port via the argument 1 and the Ollama url via argument 2. For local mode specify \"-l\"";
