@@ -14,12 +14,13 @@ partial class OllamaChatSession
     private QuestInfo? _rootQuestInfo;
     private WorldInfo? _worldInfo;
 
-    public void RunServer(int port, string connectionKey)
+    public void RunServer(IPAddress ipv4, IPAddress ipv6, int port, string connectionKey)
     {
         ShouldRun = true;
         EventBasedNetListener listener = new();
         NetManager server = new(listener);
-        if (!server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port))
+        server.DisconnectTimeout = 20000;
+        if (!server.Start(ipv4, ipv6, port))
         {
             LogError("Error starting server!");
             return;
@@ -43,6 +44,7 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeReusable<ClearContextInfo>(OnClearCommandRecieved);
         _netPacketProcessor.SubscribeReusable<HeartBeatInfo>(OnHeartBeatRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WorldInfo>(OnWorldInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<InitBackendMessage>(OnInitBackendRecieved);
         _netPacketProcessor.SubscribeNetSerializable<NPCItemChangeInfo>(OnNPCItemChanged);
         _netPacketProcessor.SubscribeNetSerializable<NPCInventoryChangeInfo>(OnNPCInventoryChanged);
         _netPacketProcessor.SubscribeNetSerializable<QuestInfo>(OnQuestRootRecieved);
@@ -73,9 +75,30 @@ partial class OllamaChatSession
         server.Stop();
     }
 
+    private readonly NetDataWriter _resultWriter = new();
+    private void SendResult(string id, bool success)
+    {
+        if (_unityPeer == null)
+        {
+            LogError("Cannot send result. Unity disconnected.");
+            return;
+        }
+        var response = new ResultInfo(id, success);
+        _netPacketProcessor.WriteNetSerializable(_resultWriter, ref response);
+        _unityPeer.Send(_resultWriter, DeliveryMethod.ReliableUnordered);
+        _resultWriter.Reset();
+    }
+
+    private async void OnInitBackendRecieved(InitBackendMessage message)
+    {
+        var success = await InitOllama(message.OllamaUri, message.LanguageModel, message.EmbeddingModel);
+        SendResult(nameof(InitBackendMessage), success);
+    }
+
     private async void OnNPCItemChanged(NPCItemChangeInfo info)
     {
         LogEvent("Items changed: " + info.ItemName + " for " + info.NPCName);
+        bool success = false;
         try
         {
             var doc = await GetEmbeddedInventoryAsync(info.NPCName);
@@ -98,15 +121,19 @@ partial class OllamaChatSession
             {
                 AddDocument(info.NPCName, newdoc);
             }
+            success = true;
         }
         catch (Exception e)
         {
+            success = false;
             LogError(e.ToString());
         }
+        SendResult(nameof(NPCItemChangeInfo), success);
     }
 
     private async void OnNPCInventoryChanged(NPCInventoryChangeInfo info)
     {
+        bool success = false;
         LogEvent("inventory changed for " + info.NPCName, ConsoleColor.DarkRed);
         foreach (var item in info.ItemNames)
         {
@@ -128,11 +155,14 @@ partial class OllamaChatSession
             {
                 AddDocument(info.NPCName, newdoc);
             }
+            success = true;
         }
         catch (Exception e)
         {
+            success = false;
             LogError(e.ToString());
         }
+        SendResult(nameof(NPCInventoryChangeInfo), success);
     }
 
     private void OnHeartBeatRecieved(HeartBeatInfo info)

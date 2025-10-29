@@ -21,7 +21,7 @@ partial class OllamaChatSession
     private string? _embeddingModel;
     private readonly Dictionary<string, NpcState> _npcStates = [];
 
-    public async Task InitOllama(string url, string activeModel, string? embeddingModel = null)
+    public async Task<bool> InitOllama(string url, string activeModel, string? embeddingModel)
     {
         try
         {
@@ -30,7 +30,7 @@ partial class OllamaChatSession
         catch (Exception)
         {
             LogError("[ERROR] Intializing Ollama. Ensure the Ollama background service is running!" + Environment.NewLine);
-            throw;
+            return false;
         }
         try
         {
@@ -43,14 +43,14 @@ partial class OllamaChatSession
         catch (Exception)
         {
             LogError("[ERROR] Could not find model at given URL");
-            throw;
+            return false;
         }
 
         _embeddingModel = embeddingModel;
         _ollama.SelectedModel = activeModel;
 
         Log("System initialized!", ConsoleColor.Green);
-        Console.WriteLine();
+        return true;
     }
 
     private NpcState GetOrAddNpcState(string name)
