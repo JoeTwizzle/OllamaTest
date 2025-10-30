@@ -1,4 +1,6 @@
 
+using System;
+
 namespace Backend;
 internal static class Utils
 {
@@ -40,6 +42,7 @@ public enum LogLevel
     Trace,
     Debug,
     Information,
+    Warn,
     Error,
     Critical,
 }

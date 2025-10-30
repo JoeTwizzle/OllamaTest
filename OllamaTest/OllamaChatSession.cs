@@ -289,13 +289,14 @@ partial class OllamaChatSession
         Log("Generating message for: " + _activeCharacter?.Name ?? "Null", ConsoleColor.DarkRed, LogLevel.Information);
         try
         {
+            GameLogger.Log(LogLevel.Information, "Player:" + message);
             while (Interlocked.CompareExchange(ref waitForEvaluation, 1, 0) != 0) ;
             var character = _activeCharacter;
             if (character == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
             string response = await GetAIMessageAsync(message, []);
+            GameLogger.Log(LogLevel.Information, character.Name + ":" + response);
             Console.WriteLine();
             response = StripNonLatin().Replace(response, "");
-            Log($"{character.Name}: {response}", ConsoleColor.Gray);
             //send response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
             {
@@ -332,7 +333,7 @@ partial class OllamaChatSession
             //Hack to make quests related to this character visible for the instructor
             Instance!._activeCharacter!.Name = character.Name;
             string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
-            Log($"Instructor: {instructorResponse}", ConsoleColor.Yellow, LogLevel.Information);
+            GameLogger.Log(LogLevel.Information, "Instructor:" + instructorResponse);
             Instance!._activeCharacter!.Name = InstructorName;
             LoadCharacter(character, false).Wait();
             Interlocked.Exchange(ref waitForEvaluation, 0);

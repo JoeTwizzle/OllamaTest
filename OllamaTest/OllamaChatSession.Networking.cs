@@ -67,6 +67,7 @@ partial class OllamaChatSession
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
+        LogEvent("Server started. Waiting for connection", ConsoleColor.Green);
         while (ShouldRun)
         {
             server.PollEvents();
