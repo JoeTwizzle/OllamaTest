@@ -48,7 +48,7 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetMyHome()
     {
-        Console.WriteLine($"{nameof(GetMyHome)} called");
+        GameLogger.Log(LogLevel.Information, $"{nameof(GetMyHome)} called");
         if (Instance == null || Instance._worldInfo == null || Instance._activeCharacter == null)
         {
             return "No info available.";
@@ -69,7 +69,7 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetQuestsForPlayer()
     {
-        LogInfo($"{nameof(GetQuestsForPlayer)} called");
+        GameLogger.Log(LogLevel.Information, $"{nameof(GetQuestsForPlayer)} called");
 
         if (Instance == null || Instance._activeCharacter == null)
         {

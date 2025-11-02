@@ -5,6 +5,8 @@ namespace Backend;
 internal class Program
 {
     //TODO: INVESTIGATE NPC MEMORY
+    //TODO: STRUCTURE LOGS AS CSV
+    //TODO: LOG FUNCTION CALLS
     const int Port = 9050;
     const string ConnectionKey = "eotwConnectionKey";
 

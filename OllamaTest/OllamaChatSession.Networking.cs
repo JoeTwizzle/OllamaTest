@@ -84,6 +84,7 @@ partial class OllamaChatSession
             LogError("Cannot send result. Unity disconnected.");
             return;
         }
+        LogEvent("Sending result ok");
         var response = new ResultInfo(id, success);
         _netPacketProcessor.WriteNetSerializable(_resultWriter, ref response);
         _unityPeer.Send(_resultWriter, DeliveryMethod.ReliableUnordered);
