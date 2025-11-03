@@ -55,6 +55,10 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<SaveToFileInfo>(OnSaveInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<LoadFromFileInfo>(OnLoadInfoRecieved);
+
+        _netPacketProcessor.SubscribeNetSerializable<TimeOfDayInfo>(OnTimeOfDayRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<WeatherInfo>(OnWeatherRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<PlayerAnimalInfo>(OnPlayerAnimalRecieved);
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
@@ -74,6 +78,19 @@ partial class OllamaChatSession
             Thread.Sleep(1);
         }
         server.Stop();
+    }
+
+    private void OnTimeOfDayRecieved(TimeOfDayInfo timeOfDayInfo)
+    {
+        worldTimeOfDayText = $"It is currently {timeOfDayInfo.TimeOfDay}";
+    }
+    private void OnWeatherRecieved(WeatherInfo weatherInfo)
+    {
+        worldWeatherText = $"The current weather is: {weatherInfo.Weather}";
+    }
+    private void OnPlayerAnimalRecieved(PlayerAnimalInfo playerAnimalInfo)
+    {
+        playerAnimalText = $"The player's name is {playerAnimalInfo.AnimalName} they are a {playerAnimalInfo.AnimalSpecies}";
     }
 
     private readonly NetDataWriter _resultWriter = new();

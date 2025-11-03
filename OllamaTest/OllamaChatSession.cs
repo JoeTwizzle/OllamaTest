@@ -94,6 +94,7 @@ partial class OllamaChatSession
     private void ClearNpcStates()
     {
         LogWarning("All NPC states cleared");
+        playerAnimalText = "";
         _npcStates.Clear();
     }
 

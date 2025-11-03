@@ -7,7 +7,9 @@ internal record Document(string Text, List<float[]> Embedding);
 partial class OllamaChatSession
 {
     private const float SimilarityThreshold = 0.2f; // Minimum relevance threshold
-
+    private string playerAnimalText = "";
+    private string worldWeatherText = "";
+    private string worldTimeOfDayText = "";
 
     public void RemoveDocuments(string npcName)
     {
@@ -71,11 +73,11 @@ partial class OllamaChatSession
         {
             throw new InvalidOperationException("Could not query documents! No active character set.");
         }
-        var request = new EmbedRequest() { Input = [$"The player says to {_activeCharacter.Name}: {Environment.NewLine} {userPrompt}"], Model = _embeddingModel };
+        //var request = new EmbedRequest() { Input = [$"The player says to {_activeCharacter.Name}: {Environment.NewLine} {userPrompt}"], Model = _embeddingModel };
+        var request = new EmbedRequest() { Input = [userPrompt], Model = _embeddingModel };
         var questionEmbedding = await _ollama.EmbedAsync(request);
 
         // Find best document with similarity score
-        //TODO: Maybe allow more than one doc to be returned?
         var state = GetNpcState(npcName);
 
         if (state.RagDocuments.Count > 0)
@@ -88,15 +90,18 @@ partial class OllamaChatSession
             .OrderBy(x => x.Similarity)
             .Where(x => x.Similarity >= SimilarityThreshold)
             .Take(3)
-            .ToArray();
+            .ToList();
 
-            if (bestMatches.Length == 0)
+            if (bestMatches.Count == 0)
                 return userPrompt;
 
             var context = string.Join("\n\n---\n\n", bestMatches.Select(m => m.Document.Text));
             var prompt = $"""
             You may use the following context to aid your answer. 
-            If you don't know the answer, just say so OR ask the user to specify what they mean.
+            If you don't know the answer, just say so OR ask the player to specify what they mean.
+            {playerAnimalText}
+            {worldTimeOfDayText}
+            {worldWeatherText}
             
             Context:
             {context}
