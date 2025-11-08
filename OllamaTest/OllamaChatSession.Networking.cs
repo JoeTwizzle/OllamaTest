@@ -63,7 +63,7 @@ partial class OllamaChatSession
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
-            GameLogger.Init($"Logs/Session {DateTime.Now:yyyy-MM-dd HH-mm-ss}.txt");
+            GameLogger.Init($"Logs/Session {DateTime.Now:yyyy-MM-dd HH-mm-ss}.csv");
             LogEvent("Unity connected!");
         };
         listener.PeerDisconnectedEvent += async (peer, info) =>

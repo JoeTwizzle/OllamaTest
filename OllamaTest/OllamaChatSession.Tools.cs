@@ -82,7 +82,7 @@ partial class OllamaChatSession
         {
             LogError($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?._activeCharacter == null}");
             result = "No quests available";
-            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            GameLogger.Log(Role.ToolResult, nameof(GetQuestsForPlayer), result);
             return result;
         }
         var state = Instance.GetActiveNpcState();
@@ -90,12 +90,12 @@ partial class OllamaChatSession
         {
             LogError($"Failed. No available quests for {Instance._activeCharacter.Name}");
             result = "No quests available";
-            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            GameLogger.Log(Role.ToolResult, nameof(GetQuestsForPlayer), result);
             return result;
         }
         LogInfo(state.AvailableQuests);
         result = "The quests that you want the player to do are: \"" + state.AvailableQuests + "\"";
-        GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+        GameLogger.Log(Role.ToolResult, nameof(GetQuestsForPlayer), result);
         return result;
     }
     /// <summary>

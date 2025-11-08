@@ -66,6 +66,8 @@ public static class GameLogger
         }
         message ??= "";
         message = message.Replace('\t', ' ');
+        message = message.Replace('\n', ' ');
+        message = message.Replace('\r', ' ');
         Utils.Log(message, ConsoleColor.Gray);
 
         var ts = DateTime.UtcNow;
