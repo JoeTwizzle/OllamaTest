@@ -94,21 +94,27 @@ public static class GameLogger
     static readonly HttpClient httpClient = new();
     public static async Task<bool> UploadLog()
     {
-        if (_filePath == null)
+        try
         {
-            throw new InvalidOperationException("File path not set.");
+            if (_filePath == null)
+            {
+                throw new InvalidOperationException("File path not set.");
+            }
+            Flush();
+            var fileBytes = await File.ReadAllBytesAsync(_filePath);
+            var fileContent = new ByteArrayContent(fileBytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            using var form = new MultipartFormDataContent
+            {
+                { fileContent, "file", Path.GetFileName(_filePath) }
+            };
+            var response = await httpClient.PostAsync("https://eotw.briem.cc/upload", form);
+            return response.StatusCode == System.Net.HttpStatusCode.OK;
         }
-        Flush();
-        var fileBytes = await File.ReadAllBytesAsync(_filePath);
-        var fileContent = new ByteArrayContent(fileBytes);
-        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
-        using var form = new MultipartFormDataContent
+        catch
         {
-            { fileContent, "file", Path.GetFileName(_filePath) }
-        };
-
-        var response = await httpClient.PostAsync("https://eotw.briem.cc/upload", form);
-        return response.StatusCode == System.Net.HttpStatusCode.OK;
+            return false;
+        }
     }
 
     public static async Task<bool> Shutdown()
