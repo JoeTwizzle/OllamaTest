@@ -48,18 +48,25 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetMyHome()
     {
-        GameLogger.Log(LogLevel.Information, $"{nameof(GetMyHome)} called");
+        GameLogger.Log(Role.ToolInvoke, nameof(GetMyHome), "");
+        string result;
         if (Instance == null || Instance._worldInfo == null || Instance._activeCharacter == null)
         {
-            return "No info available.";
+            result = "No info available.";
+            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            return result;
         }
 
         var biome = Instance._worldInfo.NpcBiomeInfos.Where(x => x.NpcName == Instance._activeCharacter.Name).FirstOrDefault().BiomeName;
         if (biome == null)
         {
-            return "Your home biome is unknown.";
+            result = "Your home biome is unknown.";
+            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            return result;
         }
-        return $"You live in the {biome} biome!";
+        result = $"You live in the {biome} biome!";
+        GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+        return result;
     }
 
     /// <summary>
@@ -69,22 +76,27 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetQuestsForPlayer()
     {
-        GameLogger.Log(LogLevel.Information, $"{nameof(GetQuestsForPlayer)} called");
-
+        GameLogger.Log(Role.ToolInvoke, nameof(GetQuestsForPlayer), "");
+        string result;
         if (Instance == null || Instance._activeCharacter == null)
         {
             LogError($"Failed. Instance: {Instance == null} ActiveCharacter: {Instance?._activeCharacter == null}");
-            return "No quests available";
+            result = "No quests available";
+            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
-
         if (string.IsNullOrWhiteSpace(state.AvailableQuests))
         {
             LogError($"Failed. No available quests for {Instance._activeCharacter.Name}");
-            return "No quests available";
+            result = "No quests available";
+            GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+            return result;
         }
         LogInfo(state.AvailableQuests);
-        return "The quests that you want the player to do are: \"" + state.AvailableQuests + "\"";
+        result = "The quests that you want the player to do are: \"" + state.AvailableQuests + "\"";
+        GameLogger.Log(Role.ToolResult, nameof(GetMyHome), result);
+        return result;
     }
     /// <summary>
     /// Returns the current quest you have asked the player to do
@@ -93,15 +105,18 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetCurrentPlayerActiveQuest()
     {
-        LogInfo($"{nameof(GetCurrentPlayerActiveQuest)} called");
-
+        GameLogger.Log(Role.ToolInvoke, nameof(GetCurrentPlayerActiveQuest), "");
+        string result;
         if (Instance == null || Instance._activeCharacter == null)
         {
-            return "No quest activated";
+            result = "No quest activated";
+            GameLogger.Log(Role.ToolResult, nameof(GetCurrentPlayerActiveQuest), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
-        LogInfo(state.CurrentQuest);
-        return state.CurrentQuest ?? "No quest activated";
+        result = state.CurrentQuest ?? "No quest activated";
+        GameLogger.Log(Role.ToolResult, nameof(GetCurrentPlayerActiveQuest), result);
+        return result;
     }
     /// <summary>
     /// Starts a quest for the player! MUST Use GetQuestsForPlayer to get the id
@@ -111,12 +126,13 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string StartPlayerQuest(string id)
     {
-        LogInfo($"{nameof(StartPlayerQuest)} called with id: {id}");
-
-
+        GameLogger.Log(Role.ToolInvoke, nameof(StartPlayerQuest), id);
+        string result;
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
-            return $"Could not start quest with id: {id} Not connected to the game.";
+            result = $"Could not start quest with id: {id} Not connected to the game.";
+            GameLogger.Log(Role.ToolResult, nameof(StartPlayerQuest), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
 
@@ -126,10 +142,13 @@ partial class OllamaChatSession
             Instance._netPacketProcessor.Write(Instance._writer, response);
             Instance._unityPeer.Send(Instance._writer, DeliveryMethod.ReliableOrdered);
             Instance._writer.Reset();
-            return $"Successfully started quest with id: {id}";
+            result = $"Successfully started quest with id: {id}";
+            GameLogger.Log(Role.ToolResult, nameof(StartPlayerQuest), result);
+            return result;
         }
-
-        return $"Could not start quest with id: {id} Make sure its id was spelled correctly and try again.";
+        result = $"Could not start quest with id: {id} Make sure its id was spelled correctly and try again.";
+        GameLogger.Log(Role.ToolResult, nameof(StartPlayerQuest), result);
+        return result;
     }
 
     /// <summary>
@@ -139,19 +158,19 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetCompletableJobs()
     {
-        LogInfo($"{nameof(GetCompletableJobs)} called");
+        GameLogger.Log(Role.ToolInvoke, nameof(GetCompletableJobs), "");
+        string result;
 
-        if (Instance == null)
+        if (Instance == null || Instance._activeCharacter == null)
         {
-            return "No tasks available";
+            result = "No tasks available";
+            GameLogger.Log(Role.ToolResult, nameof(GetCompletableJobs), result);
+            return result;
         }
 
-        if (Instance._activeCharacter == null)
-        {
-            return "No tasks available";
-        }
-
-        return Instance.GetActiveNpcState().CompletableTasks ?? "No tasks available";
+        result = Instance.GetActiveNpcState().CompletableTasks ?? "No tasks available";
+        GameLogger.Log(Role.ToolResult, nameof(GetCompletableJobs), result);
+        return result;
     }
 
     /// <summary>
@@ -162,11 +181,14 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string MarkJobAsComplete(string jobId)
     {
-        LogInfo($"{nameof(MarkJobAsComplete)} called with id: {jobId}");
+        GameLogger.Log(Role.ToolInvoke, nameof(MarkJobAsComplete), jobId);
 
+        string result;
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
-            return $"Could not complete job id: {jobId} Not connected to the game.";
+            result = $"Could not complete job id: {jobId} Not connected to the game.";
+            GameLogger.Log(Role.ToolResult, nameof(MarkJobAsComplete), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
         if (state.CompletableTasks?.Contains(jobId) ?? false)
@@ -175,10 +197,14 @@ partial class OllamaChatSession
             Instance._netPacketProcessor.Write(Instance._writer, response);
             Instance._unityPeer.Send(Instance._writer, DeliveryMethod.ReliableOrdered);
             Instance._writer.Reset();
-            return $"Successfully completed job with id: {jobId}";
+            result = $"Successfully completed job with id: {jobId}";
+            GameLogger.Log(Role.ToolResult, nameof(MarkJobAsComplete), result);
+            return result;
         }
 
-        return $"Could not complete job with id: {jobId} Make sure its id was spelled correctly and try again.";
+        result = $"Could not complete job with id: {jobId} Make sure its id was spelled correctly and try again.";
+        GameLogger.Log(Role.ToolResult, nameof(MarkJobAsComplete), result);
+        return result;
     }
 
     /// <summary>
@@ -188,14 +214,15 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GetItems()
     {
-        LogInfo($"{nameof(GetItems)} called");
-
+        GameLogger.Log(Role.ToolInvoke, nameof(GetItems), "");
+        string result;
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
-            return $"ERROR: Could not get items. Not connected to the game.";
+            result = $"ERROR: Could not get items. Not connected to the game.";
+            GameLogger.Log(Role.ToolResult, nameof(GetItems), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
-        string text;
         if (state.InventoryState.Count > 0)
         {
             StringBuilder sb = new();
@@ -212,14 +239,14 @@ partial class OllamaChatSession
                     sb.AppendLine($"Item: {item.Name}");
                 }
             }
-            text = sb.ToString();
+            result = sb.ToString();
         }
         else
         {
-            text = $"{Instance._activeCharacter.Name} has nothing in their inventory";
+            result = $"{Instance._activeCharacter.Name} has nothing in their inventory";
         }
-        LogInfo(text);
-        return text;
+        GameLogger.Log(Role.ToolResult, nameof(GetItems), result);
+        return result;
     }
 
     /// <summary>
@@ -230,11 +257,13 @@ partial class OllamaChatSession
     [OllamaTool]
     public static string GiveItemToPlayer(string itemName)
     {
-        LogInfo($"{nameof(GiveItemToPlayer)} called with item: {itemName}");
-
+        GameLogger.Log(Role.ToolInvoke, nameof(GiveItemToPlayer), itemName);
+        string result;
         if (Instance == null || Instance._unityPeer == null || Instance._activeCharacter == null)
         {
-            return $"ERROR: Could not give item \"{itemName}\" to player. Not connected to the game.";
+            result = $"ERROR: Could not give item \"{itemName}\" to player. Not connected to the game.";
+            GameLogger.Log(Role.ToolResult, nameof(GiveItemToPlayer), result);
+            return result;
         }
         var state = Instance.GetActiveNpcState();
         if (state.InventoryState.Any(x => x.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase)))
@@ -246,10 +275,13 @@ partial class OllamaChatSession
             Instance._unityPeer.Send(writer, DeliveryMethod.ReliableOrdered);
             writer.Reset();
             LogInfo($"{nameof(GiveItemToPlayer)} called with item: {itemName}");
-            return $"Successfully gave item \"{itemName}\" to player";
+            result = $"Successfully gave item \"{itemName}\" to player";
+            GameLogger.Log(Role.ToolResult, nameof(GiveItemToPlayer), result);
+            return result;
         }
-        LogInfo("Item not found: " + itemName);
-        return $"Could not give item \"{itemName}\" to player. The item was not found in the inventory. Please ensure that the name is spelled correctly and try again!";
+        result = $"Could not give item \"{itemName}\" to player. The item was not found in the inventory. Please ensure that the name is spelled correctly and try again!";
+        GameLogger.Log(Role.ToolResult, nameof(GiveItemToPlayer), result);
+        return result;
     }
 
     /// <summary>

@@ -1,6 +1,19 @@
+using System;
+using System.Globalization;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Backend;
+
+public enum Role
+{
+    System,
+    Player,
+    NPC,
+    Instructor,
+    ToolInvoke,
+    ToolResult
+}
 
 public static class GameLogger
 {
@@ -8,7 +21,12 @@ public static class GameLogger
     private static readonly object _lock = new object();
     private static bool _initialized;
     private static StreamWriter? _writer;
+    private static int GroupId = 0;
 
+    public static void NextGroup()
+    {
+        GroupId++;
+    }
 
     public static void Init(string filePath)
     {
@@ -24,7 +42,7 @@ public static class GameLogger
         {
             AutoFlush = false
         };
-
+        _writer.WriteLine("Role\tTime\tName\tMessage\tGroupId");
 
         AppDomain.CurrentDomain.ProcessExit += (a, b) =>
         {
@@ -32,7 +50,7 @@ public static class GameLogger
         };
         AppDomain.CurrentDomain.UnhandledException += (a, b) =>
         {
-            Log(LogLevel.Critical, ((Exception)b.ExceptionObject).ToString(), (Exception)b.ExceptionObject);
+            Log(Role.System, "System", ((Exception)b.ExceptionObject).ToString());
             Flush();
         };
 
@@ -40,40 +58,30 @@ public static class GameLogger
     }
 
 
-    public static void Log(LogLevel level, string? message, Exception? ex = null)
+    public static void Log(Role role, string name, string? message)
     {
         if (!_initialized || _writer == null)
         {
             throw new InvalidOperationException("Logger not initialized.");
         }
+        message ??= "";
+        message = message.Replace('\t', ' ');
+        Utils.Log(message, ConsoleColor.Gray);
 
-        if (message == null)
-        {
-            return;
-        }
-        Utils.Log(message, ConsoleColor.Gray, level);
-
-        var ts = DateTime.Now;
-        _writer.WriteLine("-------------Start-------------");
-        string line = $"{ts:yyyy-MM-dd HH:mm:ss} [{level}] {message}";
-        lock (_lock)
-        {
-            _writer.WriteLine(line);
-            if (ex != null)
-            {
-                _writer.WriteLine($"Exception: {ex.Message}");
-                _writer.WriteLine(ex.StackTrace);
-            }
-        }
-        _writer.WriteLine("--------------End---------------");
-        _writer.WriteLine();
+        var ts = DateTime.UtcNow;
+        var sb = new StringBuilder();
+        //|ROLE|TIME|NAME|MESSAGE|GroupId|
+        sb.Append(role.ToString());
+        sb.Append('\t');
+        sb.Append(ts.ToString(CultureInfo.InvariantCulture));
+        sb.Append('\t');
+        sb.Append(name);
+        sb.Append('\t');
+        sb.Append(message);
+        sb.Append('\t');
+        sb.Append(GroupId);
+        _writer.WriteLine(sb.ToString());
     }
-
-
-    public static void Info(string? message) => Log(LogLevel.Information, message);
-    public static void Warn(string? message) => Log(LogLevel.Critical, message);
-    public static void Error(string? message, Exception? ex = null) => Log(LogLevel.Error, message, ex);
-
 
     public static void Flush()
     {
@@ -83,14 +91,35 @@ public static class GameLogger
         }
     }
 
+    static readonly HttpClient httpClient = new();
+    public static async Task<bool> UploadLog()
+    {
+        if (_filePath == null)
+        {
+            throw new InvalidOperationException("File path not set.");
+        }
+        Flush();
+        var fileBytes = await File.ReadAllBytesAsync(_filePath);
+        var fileContent = new ByteArrayContent(fileBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        using var form = new MultipartFormDataContent
+        {
+            { fileContent, "file", Path.GetFileName(_filePath) }
+        };
 
-    public static void Shutdown()
+        var response = await httpClient.PostAsync("https://eotw.briem.cc/upload", form);
+        return response.StatusCode == System.Net.HttpStatusCode.OK;
+    }
+
+    public static async Task<bool> Shutdown()
     {
         lock (_lock)
         {
+            GroupId = 0;
             _writer?.Flush();
             _writer?.Dispose();
             _initialized = false;
         }
+        return await UploadLog();
     }
 }

@@ -1,5 +1,7 @@
 global using static Backend.Utils;
+using System.Diagnostics;
 using System.Net;
+using System.Threading.Tasks;
 namespace Backend;
 
 internal class Program
@@ -10,7 +12,7 @@ internal class Program
     const int Port = 9050;
     const string ConnectionKey = "eotwConnectionKey";
 
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         IPAddress listenIpv4Addr = IPAddress.Loopback;
         IPAddress listenIpv6Addr = IPAddress.IPv6Loopback;
@@ -18,6 +20,6 @@ internal class Program
         OllamaChatSession session = new();
         GameLogger.Init($"Logs/Session {DateTime.Now:yyyy-MM-dd HH-mm-ss}.txt");
         session.RunServer(listenIpv4Addr, listenIpv6Addr, Port, ConnectionKey);
-        GameLogger.Shutdown();
+        Debug.Assert(await GameLogger.Shutdown());
     }
 }
