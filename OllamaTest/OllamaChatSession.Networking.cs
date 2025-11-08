@@ -1,6 +1,7 @@
 using Backend.Messages;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using System.Diagnostics;
 using System.Net;
 
 namespace Backend;
@@ -62,12 +63,14 @@ partial class OllamaChatSession
         listener.PeerConnectedEvent += peer =>
         {
             _unityPeer = peer;
+            GameLogger.Init($"Logs/Session {DateTime.Now:yyyy-MM-dd HH-mm-ss}.txt");
             LogEvent("Unity connected!");
         };
-        listener.PeerDisconnectedEvent += (peer, info) =>
+        listener.PeerDisconnectedEvent += async (peer, info) =>
         {
             LogEvent("Unity disconnected!");
             ClearNpcStates();
+            Debug.Assert(await GameLogger.Shutdown());
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;

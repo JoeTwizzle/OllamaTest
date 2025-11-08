@@ -287,6 +287,7 @@ partial class OllamaChatSession
     long waitForEvaluation = 0;
     public async Task ChatAsync(string message)
     {
+        GameLogger.NextGroup();
         Log("Generating message for: " + _activeCharacter?.Name ?? "Null", ConsoleColor.DarkRed, LogLevel.Information);
         try
         {
