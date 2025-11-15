@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
@@ -60,15 +61,15 @@ public static class GameLogger
 
     public static void Log(Role role, string name, string? message)
     {
-        if (!_initialized || _writer == null)
-        {
-            throw new InvalidOperationException("Logger not initialized.");
-        }
         message ??= "";
         message = message.Replace('\t', ' ');
         message = message.Replace('\n', ' ');
         message = message.Replace('\r', ' ');
         Utils.Log(message, ConsoleColor.Gray);
+        if (!_initialized || _writer == null)
+        {
+            throw new InvalidOperationException("Logger not initialized.");
+        }
 
         var ts = DateTime.UtcNow;
         var sb = new StringBuilder();
@@ -89,7 +90,10 @@ public static class GameLogger
     {
         lock (_lock)
         {
-            _writer?.Flush();
+            if (_initialized)
+            {
+                _writer?.Flush();
+            }
         }
     }
 
@@ -105,7 +109,7 @@ public static class GameLogger
             Flush();
             var fileBytes = await File.ReadAllBytesAsync(_filePath);
             var fileContent = new ByteArrayContent(fileBytes);
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            // fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
             using var form = new MultipartFormDataContent
             {
                 { fileContent, "file", Path.GetFileName(_filePath) }
