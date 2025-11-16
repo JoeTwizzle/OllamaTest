@@ -104,11 +104,18 @@ partial class OllamaChatSession
             LogError("Cannot send result. Unity disconnected.");
             return;
         }
-        LogEvent("Sending result ok");
-        var response = new ResultInfo(id, success);
-        _netPacketProcessor.WriteNetSerializable(_resultWriter, ref response);
-        _unityPeer.Send(_resultWriter, DeliveryMethod.ReliableUnordered);
-        _resultWriter.Reset();
+        try
+        {
+            LogEvent("Sending result ok");
+            var response = new ResultInfo(id, success);
+            _netPacketProcessor.WriteNetSerializable(_resultWriter, ref response);
+            _unityPeer.Send(_resultWriter, DeliveryMethod.ReliableUnordered);
+            _resultWriter.Reset();
+        }
+        catch (Exception e)
+        {
+            LogError($"Cannot send result. {e}");
+        }
     }
 
     private async void OnInitBackendRecieved(InitBackendMessage message)
@@ -153,26 +160,37 @@ partial class OllamaChatSession
         SendResult(nameof(NPCItemChangeInfo), success);
     }
 
-    private async void OnNPCInventoryChanged(NPCInventoryChangeInfo info)
+    private void OnNPCInventoryChanged(NPCInventoryChangeInfo info)
     {
         bool success = false;
-        LogEvent("inventory changed for " + info.NPCName, ConsoleColor.DarkRed);
+        LogEvent("inventory changed for " + info.NPCName, ConsoleColor.Green);
+        LogEvent("ItemNames" + info.NPCName, ConsoleColor.DarkGreen);
         foreach (var item in info.ItemNames)
         {
-            LogEvent(item, ConsoleColor.DarkRed);
+            LogEvent(item, ConsoleColor.DarkGreen);
+        }
+        LogEvent("LockedItemNames", ConsoleColor.DarkGreen);
+        foreach (var item in info.LockedItemNames)
+        {
+            LogEvent(item, ConsoleColor.DarkGreen);
+        }
+        LogEvent("LockedItemReasons", ConsoleColor.DarkGreen);
+        foreach (var item in info.LockedItemReasons)
+        {
+            LogEvent(item, ConsoleColor.DarkGreen);
         }
         try
         {
-            var str = GetInventoryString(info.NPCName);
+            var oldInvText = GetInventoryString(info.NPCName);
 
-            if (!string.IsNullOrWhiteSpace(str))
+            if (!string.IsNullOrWhiteSpace(oldInvText))
             {
-                RemoveDocument(info.NPCName, str);
+                RemoveDocument(info.NPCName, oldInvText);
             }
 
             SetInventory(info.NPCName, info);
 
-            var newdoc = await GetEmbeddedInventoryAsync(info.NPCName);
+            var newdoc = GetEmbeddedInventoryAsync(info.NPCName).Result;
             if (newdoc != null)
             {
                 AddDocument(info.NPCName, newdoc);
@@ -182,7 +200,7 @@ partial class OllamaChatSession
         catch (Exception e)
         {
             success = false;
-            LogError(e.ToString());
+            LogError($"Failed to set inventory for {info.NPCName} {e}");
         }
         SendResult(nameof(NPCInventoryChangeInfo), success);
     }
@@ -213,7 +231,7 @@ partial class OllamaChatSession
         Load(info.Path);
     }
 
-    private async void OnQuestInfoRecieved(UpdateQuestsInfo info)
+    private void OnQuestInfoRecieved(UpdateQuestsInfo info)
     {
         var state = GetNpcState(info.Name);
         var prevQuest = state.AvailableQuests;
@@ -233,13 +251,24 @@ partial class OllamaChatSession
                 """;
             }
 
-            LogEvent($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
-            if (!string.IsNullOrWhiteSpace(prevQuest))
-            {
-                RemoveDocument(info.Name, prevQuest);
-            }
+            LogEvent($"Added UpdateQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}", ConsoleColor.Cyan);
 
-            await AddDocument(info.Name, input);
+            string prevDoc;
+            if (string.IsNullOrWhiteSpace(prevQuest))
+            {
+                prevDoc = "You currently don't need help with anything";
+            }
+            else
+            {
+                prevDoc = $"""
+                The things (quests) {info.Name} wants the player to help with are:           
+                {prevQuest}
+                """;
+            }
+            RemoveDocument(info.Name, prevDoc);
+
+
+            AddDocument(info.Name, input).Wait();
         }
         catch
         {
@@ -263,12 +292,20 @@ partial class OllamaChatSession
             {
                 input = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{info.Quest}";
             }
-            LogEvent($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}");
+            LogEvent($"Added UpdateActiveQuestsInfo to RAG:{Environment.NewLine}{input}{Environment.NewLine}", ConsoleColor.Cyan);
+            //TODO Maybe this is the problem?
 
-            if (!string.IsNullOrWhiteSpace(prevActiveQuest))
+            string prevDoc;
+            if (string.IsNullOrWhiteSpace(prevActiveQuest))
             {
-                RemoveDocument(info.Name, prevActiveQuest);
+                prevDoc = $"{info.Name} has not tasked the player with any quest at the moment.";
             }
+            else
+            {
+                prevDoc = $"The current quest that {info.Name} has tasked the player with has Identifier:\n{prevActiveQuest}";
+            }
+            RemoveDocument(info.Name, prevDoc);
+
 
             await AddDocument(info.Name, input);
         }

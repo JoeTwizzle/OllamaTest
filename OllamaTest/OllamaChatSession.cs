@@ -40,9 +40,9 @@ partial class OllamaChatSession
                 await PullModel(_ollama, embeddingModel);
             }
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            LogError("[ERROR] Could not find model at given URL");
+            LogError($"[ERROR] Could not find model {activeModel} or {embeddingModel} at given URL {e}");
             return false;
         }
 
@@ -101,7 +101,6 @@ partial class OllamaChatSession
     public async Task LoadCharacter(NPCCharacterInfo characterInfo, bool forceReload)
     {
         LogEvent("Setting character to: " + characterInfo.Name);
-        //TODO: structured character info handling
         if (_ollama == null) throw new InvalidOperationException("Ollama must be initialized before loading a character.");
         PersistMessageHistory();
 
@@ -308,7 +307,7 @@ partial class OllamaChatSession
                 _writer.Reset();
             }
             Console.WriteLine();
-            string preamble = "Evaluate the following sets of messages. Your job is to invoke relevant tools:" + Environment.NewLine;
+            string preamble = $"Evaluate the following sets of messages. Your job is to invoke relevant tools. Only do so when {character.Name} indicates that they want help." + Environment.NewLine;
             string prevConvo = "";
             if (_chat.Messages.Count > 4
                 && _chat.Messages[^4].Role == ChatRole.User
@@ -484,11 +483,15 @@ partial class OllamaChatSession
         var connected = false;
         do
         {
-            var uri = new Uri(url);
-            LogInfo($"Connecting to Ollama at: {uri} ...");
+            var config = new OllamaApiClient.Configuration
+            {
+                Uri = new Uri(url),
+                //JsonSerializerContext = MyCustomJsonContext.Default
+            };
+            LogInfo($"Connecting to Ollama at: {config.Uri} ...");
             try
             {
-                ollama = new OllamaApiClient(url);
+                ollama = new OllamaApiClient(config);
                 connected = await ollama.IsRunningAsync();
                 LogEvent($"Connected status: {connected}");
             }

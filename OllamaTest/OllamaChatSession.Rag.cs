@@ -51,6 +51,10 @@ partial class OllamaChatSession
         if (doc == null)
         {
             LogError($"{npcName}'s document with text: {Environment.NewLine}{Environment.NewLine}{text}{Environment.NewLine}{Environment.NewLine} Could not be removed.");
+            foreach (var document in state.RagDocuments)
+            {
+                LogInfo(document.Text);
+            }
             return;
         }
         state.RagDocuments.Remove(doc);
@@ -89,7 +93,7 @@ partial class OllamaChatSession
             })
             .OrderBy(x => x.Similarity)
             .Where(x => x.Similarity >= SimilarityThreshold)
-            .Take(3)
+            .TakeLast(8)
             .ToList();
 
             if (bestMatches.Count == 0)

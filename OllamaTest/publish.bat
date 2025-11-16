@@ -19,8 +19,6 @@ for %%R in (%RUNTIMES%) do (
     dotnet publish %PROJECT% ^
         --configuration %CONFIGURATION% ^
         --runtime %%R ^
-        --self-contained true ^
-        /p:PublishSingleFile=true ^
         /p:IncludeNativeLibrariesForSelfExtract=true ^
         --output bin\publish\%%R
 

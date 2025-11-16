@@ -10,17 +10,17 @@ partial class OllamaChatSession
     {
         var state = GetNpcState(npc);
         state.InventoryState.Clear();
-        LogEvent($"Inventory set to new state for: {npc}", ConsoleColor.DarkRed);
+        LogEvent($"Inventory set to new state for: {npc}", ConsoleColor.Green);
         foreach (var item in info.ItemNames)
         {
-            LogEvent(item, ConsoleColor.DarkRed);
+            LogEvent(item, ConsoleColor.DarkGreen);
             state.InventoryState.Add(new Persistance.ItemInfo(item, ""));
         }
         for (int i = 0; i < info.LockedItemNames.Length; i++)
         {
             string? item = info.LockedItemNames[i];
             string? reason = info.LockedItemReasons[i];
-            LogEvent(item, ConsoleColor.DarkRed);
+            LogEvent(item, ConsoleColor.DarkGreen);
             state.InventoryState.Add(new Persistance.ItemInfo(item, reason));
         }
     }
