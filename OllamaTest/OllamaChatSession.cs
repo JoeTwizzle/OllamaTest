@@ -294,9 +294,8 @@ partial class OllamaChatSession
             while (Interlocked.CompareExchange(ref waitForEvaluation, 1, 0) != 0) ;
             var character = _activeCharacter;
             if (character == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
-            string response = await GetAIMessageAsync(message, []);
+            string response = await GetAIMessageAsync(message, [], true);
             GameLogger.Log(Role.NPC, character.Name, response);
-            Console.WriteLine();
             response = StripNonLatin().Replace(response, "");
             //send response
             if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
@@ -306,7 +305,6 @@ partial class OllamaChatSession
                 _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
                 _writer.Reset();
             }
-            Console.WriteLine();
             string preamble = $"Evaluate the following sets of messages. Your job is to invoke relevant tools. Only do so when {character.Name} indicates that they want help." + Environment.NewLine;
             string prevConvo = "";
             if (_chat.Messages.Count > 4
@@ -333,7 +331,7 @@ partial class OllamaChatSession
             Console.WriteLine();
             //Hack to make quests related to this character visible for the instructor
             Instance!._activeCharacter!.Name = character.Name;
-            string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? []);
+            string instructorResponse = await GetAIMessageAsync(prompt, _activeTools ?? [], false);
             GameLogger.Log(Role.Instructor, "Instructor", instructorResponse);
             Instance!._activeCharacter!.Name = InstructorName;
             LoadCharacter(character, false).Wait();
@@ -433,7 +431,7 @@ partial class OllamaChatSession
         return $"{toolCall.Function?.Name ?? "(unnamed tool)"}({string.Join(", ", toolCall.Function?.Arguments?.Select(kvp => $"{kvp.Key}: {kvp.Value}") ?? [])})";
     }
 
-    private async Task<string> GetAIMessageAsync(string message, IEnumerable<object> tools)
+    private async Task<string> GetAIMessageAsync(string message, IEnumerable<object> tools, bool stream)
     {
         if (_activeCharacter == null || _chat == null) throw new InvalidOperationException("A character must be loaded before you may chat.");
         var prompt = await GetFinalPromptAsync(_activeCharacter.Name, message);
@@ -443,6 +441,18 @@ partial class OllamaChatSession
         await foreach (var answerToken in SendAsyncHotFix(prompt, tools))
         {
             response += answerToken;
+            if (stream)
+            {
+                response = StripNonLatin().Replace(response, "");
+                //send response
+                if (_unityPeer != null && !string.IsNullOrWhiteSpace(response))
+                {
+                    var token = new AnswerTokenInfo(true, _activeCharacter.Name, response);
+                    _netPacketProcessor.WriteNetSerializable(_writer, ref token);
+                    _unityPeer.Send(_writer, DeliveryMethod.ReliableOrdered);
+                    _writer.Reset();
+                }
+            }
         }
         int start = response.IndexOf("<think>");
         int end = response.IndexOf("</think>") + "</think>".Length;
