@@ -71,7 +71,14 @@ partial class OllamaChatSession
         {
             LogEvent("Unity disconnected!");
             ClearNpcStates();
-            Debug.Assert(await GameLogger.Shutdown());
+            try
+            {
+                await GameLogger.Shutdown();
+            }
+            catch (Exception e)
+            {
+                LogError("[ERROR] Failed to upload log!!! " + e);
+            }
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;

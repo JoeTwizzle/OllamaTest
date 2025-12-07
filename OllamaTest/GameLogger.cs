@@ -43,7 +43,7 @@ public static class GameLogger
         {
             AutoFlush = false
         };
-        _writer.WriteLine("Role\tTime\tName\tMessage\tGroupId");
+        _writer.WriteLine("Role\tTimeUTC\tName\tMessage\tGroupId");
 
         AppDomain.CurrentDomain.ProcessExit += (a, b) =>
         {
