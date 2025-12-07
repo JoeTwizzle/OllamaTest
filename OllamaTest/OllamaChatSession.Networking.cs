@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Net;
 
 namespace Backend;
+
 partial class OllamaChatSession
 {
     public bool ShouldRun { get; set; }
@@ -121,6 +122,7 @@ partial class OllamaChatSession
     private async void OnInitBackendRecieved(InitBackendMessage message)
     {
         var success = await InitOllama(message.OllamaUri, message.LanguageModel, message.EmbeddingModel);
+        GameLogger.Log(Role.System, "Usercode", message.UserCode);
         SendResult(nameof(InitBackendMessage), success);
     }
 

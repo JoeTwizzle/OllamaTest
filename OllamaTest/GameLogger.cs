@@ -65,7 +65,17 @@ public static class GameLogger
         message = message.Replace('\t', ' ');
         message = message.Replace('\n', ' ');
         message = message.Replace('\r', ' ');
-        Utils.Log(message, ConsoleColor.Gray);
+        ConsoleColor color = role switch
+        {
+            Role.System => ConsoleColor.Red,
+            Role.Player => ConsoleColor.DarkBlue,
+            Role.NPC => ConsoleColor.DarkGreen,
+            Role.Instructor => ConsoleColor.DarkYellow,
+            Role.ToolInvoke => ConsoleColor.Cyan,
+            Role.ToolResult => ConsoleColor.Magenta,
+            _ => ConsoleColor.Gray,
+        };
+        Utils.Log("[" + role + " | " + name + "] " + message, color);
         if (!_initialized || _writer == null)
         {
             throw new InvalidOperationException("Logger not initialized.");
