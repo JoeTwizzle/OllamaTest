@@ -123,6 +123,8 @@ partial class OllamaChatSession
     {
         var success = await InitOllama(message.OllamaUri, message.LanguageModel, message.EmbeddingModel);
         GameLogger.Log(Role.System, "Usercode", message.UserCode);
+        GameLogger.Log(Role.System, "OllamaUri", message.OllamaUri);
+        GameLogger.Log(Role.System, "Languagemodel", message.LanguageModel);
         SendResult(nameof(InitBackendMessage), success);
     }
 

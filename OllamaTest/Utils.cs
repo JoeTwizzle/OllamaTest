@@ -4,7 +4,15 @@ using System;
 namespace Backend;
 internal static class Utils
 {
-    public static LogLevel LogLevel = LogLevel.Debug;
+    public static LogLevel LogLevel = LogLevel.Information;
+
+    public static void LogGame(string? message, ConsoleColor color)
+    {
+        var prevColor = Console.ForegroundColor;
+        Console.ForegroundColor = color;
+        Console.WriteLine(message);
+        Console.ForegroundColor = prevColor;
+    }
 
     public static void Log(string? message, ConsoleColor color, LogLevel logLevel = LogLevel.Debug)
     {
@@ -28,7 +36,7 @@ internal static class Utils
 
     public static void LogWarning(string? message)
     {
-        Log(message, ConsoleColor.Yellow, LogLevel.Error);
+        Log(message, ConsoleColor.Yellow, LogLevel.Warn);
     }
 
     public static void LogError(string? message)

@@ -75,7 +75,7 @@ public static class GameLogger
             Role.ToolResult => ConsoleColor.Magenta,
             _ => ConsoleColor.Gray,
         };
-        Utils.Log("[" + role + " | " + name + "] " + message, color);
+        Utils.LogGame("[" + role + " | " + name + "] " + message, color);
         if (!_initialized || _writer == null)
         {
             throw new InvalidOperationException("Logger not initialized.");
