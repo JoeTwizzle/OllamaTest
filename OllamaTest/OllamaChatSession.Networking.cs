@@ -3,6 +3,7 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Diagnostics;
 using System.Net;
+using System.Xml.Linq;
 
 namespace Backend;
 
@@ -57,6 +58,9 @@ partial class OllamaChatSession
         _netPacketProcessor.SubscribeNetSerializable<GeneratedDescriptionInfo>(OnDescriptionInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<SaveToFileInfo>(OnSaveInfoRecieved);
         _netPacketProcessor.SubscribeNetSerializable<LoadFromFileInfo>(OnLoadInfoRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<QuestEventMessageInfo>(OnQuestMessageEventRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<GameStateChangedEventInfo>(OnGameStateChangedRecieved);
+        _netPacketProcessor.SubscribeNetSerializable<ItemCollectOrDropEventInfo>(OnItemCollectOrDropRecieved);
 
         _netPacketProcessor.SubscribeNetSerializable<TimeOfDayInfo>(OnTimeOfDayRecieved);
         _netPacketProcessor.SubscribeNetSerializable<WeatherInfo>(OnWeatherRecieved);
@@ -79,6 +83,9 @@ partial class OllamaChatSession
             {
                 LogError("[ERROR] Failed to upload log!!! " + e);
             }
+#if !DEBUG
+            ShouldRun = false;
+#endif
         };
         listener.NetworkReceiveEvent += Listener_NetworkReceiveEvent;
         listener.NetworkReceiveUnconnectedEvent += Listener_NetworkReceiveUnconnectedEvent;
@@ -91,14 +98,33 @@ partial class OllamaChatSession
         server.Stop();
     }
 
+    private void OnItemCollectOrDropRecieved(ItemCollectOrDropEventInfo info)
+    {
+        string name = info.ItemCollected ? "ItemCollected" : "ItemDropped";
+        GameLogger.Log(Role.System, name, info.ItemName);
+    }
+
+    private void OnGameStateChangedRecieved(GameStateChangedEventInfo info)
+    {
+        GameLogger.Log(Role.System, "GameState", info.EventName);
+    }
+
+    private void OnQuestMessageEventRecieved(QuestEventMessageInfo info)
+    {
+        string name = info.Completed ? "QuestCompleted" : "QuestStarted";
+        GameLogger.Log(Role.System, name, info.QuestName);
+    }
+
     private void OnTimeOfDayRecieved(TimeOfDayInfo timeOfDayInfo)
     {
         worldTimeOfDayText = $"It is currently {timeOfDayInfo.TimeOfDay}";
     }
+
     private void OnWeatherRecieved(WeatherInfo weatherInfo)
     {
         worldWeatherText = $"The current weather is: {weatherInfo.Weather}";
     }
+
     private void OnPlayerAnimalRecieved(PlayerAnimalInfo playerAnimalInfo)
     {
         playerAnimalText = $"The player's name is {playerAnimalInfo.AnimalName} they are a {playerAnimalInfo.AnimalSpecies}";

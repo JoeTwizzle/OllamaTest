@@ -15,12 +15,7 @@ partial class OllamaChatSession
     {
         Instance ??= this;
     }
-    //TODO: RENAME THIS SHIT
-    //CommissionedQuest?
-    //UnfulfilledQuests?
-    //change npc prompt
-    //MAKE MORE CONSISTENT
-    //Change temp settings
+
     public static readonly IEnumerable<Tool> AllTools =
     [
         //new GetCurrentWeatherTool(),
