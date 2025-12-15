@@ -3,6 +3,8 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
+using System.Text.Json;
 using System.Xml.Linq;
 
 namespace Backend;
@@ -151,9 +153,30 @@ partial class OllamaChatSession
             LogError($"Cannot send result. {e}");
         }
     }
+    static readonly HttpClient httpClient = new();
 
     private async void OnInitBackendRecieved(InitBackendMessage message)
     {
+        if (string.IsNullOrWhiteSpace(message.LanguageModel))
+        {
+            try
+            {
+                using var response = await httpClient.GetAsync("https://eotw.briem.cc/nextmodel");
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                message.LanguageModel = doc.RootElement
+                          .GetProperty("next_model")
+                          .GetString()!;
+            }
+            catch (Exception e) 
+            {
+                GameLogger.Log(Role.System, "Error", e.ToString());
+                SendResult(nameof(InitBackendMessage), false);
+                return;
+            }
+        }
+
         var success = await InitOllama(message.OllamaUri, message.LanguageModel, message.EmbeddingModel);
         GameLogger.Log(Role.System, "Usercode", message.UserCode);
         GameLogger.Log(Role.System, "OllamaUri", message.OllamaUri);
