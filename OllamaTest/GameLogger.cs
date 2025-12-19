@@ -23,6 +23,7 @@ public static class GameLogger
     private static bool _initialized;
     private static StreamWriter? _writer;
     private static int GroupId = 0;
+    public static bool RemoteUserStudy;
 
     public static void NextGroup()
     {
@@ -32,6 +33,7 @@ public static class GameLogger
     public static void Init(string filePath)
     {
         if (_initialized) return;
+        RemoteUserStudy = File.Exists(Path.GetFullPath("eotw.dll"));
         _filePath = Path.GetFullPath(filePath ?? throw new ArgumentNullException(nameof(filePath)));
         var dir = Path.GetDirectoryName(_filePath);
         if (dir != null)
@@ -112,6 +114,7 @@ public static class GameLogger
     {
         try
         {
+            if (!RemoteUserStudy) return true;
             if (_filePath == null)
             {
                 throw new InvalidOperationException("File path not set.");

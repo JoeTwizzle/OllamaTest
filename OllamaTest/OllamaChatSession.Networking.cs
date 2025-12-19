@@ -157,7 +157,7 @@ partial class OllamaChatSession
 
     private async void OnInitBackendRecieved(InitBackendMessage message)
     {
-        if (string.IsNullOrWhiteSpace(message.LanguageModel))
+        if (string.IsNullOrWhiteSpace(message.LanguageModel) && GameLogger.RemoteUserStudy)
         {
             try
             {
@@ -169,7 +169,7 @@ partial class OllamaChatSession
                           .GetProperty("next_model")
                           .GetString()!;
             }
-            catch (Exception e) 
+            catch (Exception e)
             {
                 GameLogger.Log(Role.System, "Error", e.ToString());
                 SendResult(nameof(InitBackendMessage), false);
